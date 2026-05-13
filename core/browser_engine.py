@@ -2,14 +2,16 @@ import os
 import random
 from playwright.sync_api import sync_playwright
 
-try:
-    from playwright_stealth import stealth_sync
-except ImportError:
+def apply_stealth(page):
+    """Hàm bọc an toàn để gọi thư viện stealth mà không gây lỗi phần mềm"""
     try:
-        from playwright_stealth import stealth as stealth_sync
-    except ImportError:
-        def stealth_sync(page):
-            pass
+        import playwright_stealth
+        if hasattr(playwright_stealth, 'stealth_sync'):
+            playwright_stealth.stealth_sync(page)
+        elif hasattr(playwright_stealth, 'stealth') and callable(playwright_stealth.stealth):
+            playwright_stealth.stealth(page)
+    except Exception as e:
+        print(f"[!] Bỏ qua stealth do cấu trúc thư viện thay đổi: {e}")
 
 from core.change_imei import DeviceFaker
 
@@ -26,9 +28,13 @@ class BrowserEngine:
         with open(proxy_path, 'r') as f:
             return [line.strip() for line in f if line.strip()]
 
-    def launch_session(self, target_url="https://bot.sannysoft.com/", use_proxy=True):
+    def launch_session(self, target_url="https://moneytask.top", use_proxy=True):
         """Khởi chạy một phiên làm việc (Session) hoàn toàn mới"""
         
+        # Đảm bảo URL hợp lệ (Tự động thêm https:// nếu người dùng quên nhập)
+        if target_url and not target_url.startswith("http"):
+            target_url = "https://" + target_url
+
         # 1. Lấy thông số thiết bị mới (Change IMEI/Fingerprint)
         device_profile = self.device_faker.generate_new_device()
         print(f"[*] ChangeIMEI Thành công. Đang giả lập thiết bị: \n    {device_profile['user_agent'][:60]}...")
@@ -47,13 +53,24 @@ class BrowserEngine:
 
         # 3. Khởi chạy Playwright
         with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=False,
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-webrtc-hw-encoding"
-                ]
-            )
+            try:
+                # Cố gắng mở bằng Google Chrome thật trên máy tính
+                browser = p.chromium.launch(
+                    channel="chrome", 
+                    headless=False,
+                    ignore_default_args=["--enable-automation"], # Xóa thanh cảnh báo màu vàng
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-webrtc-hw-encoding"
+                    ]
+                )
+            except Exception as e:
+                print("[!] Không tìm thấy Google Chrome thật, chuyển sang dùng Chromium mặc định...")
+                browser = p.chromium.launch(
+                    headless=False,
+                    ignore_default_args=["--enable-automation"],
+                    args=["--disable-blink-features=AutomationControlled"]
+                )
 
             # Tạo Context sạch sẽ (Không lưu cookie, không chung chạ với phiên trước)
             context = browser.new_context(
@@ -67,7 +84,7 @@ class BrowserEngine:
 
             # Mở tab mới và gắn Stealth để chống Anti-bot
             page = context.new_page()
-            stealth_sync(page)
+            apply_stealth(page)
             
             print(f"[*] Đang mở trang web: {target_url}")
             page.goto(target_url)
