@@ -37,8 +37,10 @@ class BrowserEngine:
 
         # 1. Lấy thông số thiết bị mới (Change IMEI/Fingerprint)
         device_profile = self.device_faker.generate_new_device()
+        v_width = device_profile['viewport']['width']
+        v_height = device_profile['viewport']['height']
         print(f"[*] ChangeIMEI Thành công. Đang giả lập thiết bị: \n    {device_profile['user_agent'][:60]}...")
-        print(f"    Màn hình: {device_profile['viewport']['width']}x{device_profile['viewport']['height']}")
+        print(f"    Màn hình (Cửa sổ): {v_width}x{v_height}")
 
         # 2. Chọn ngẫu nhiên Proxy (nếu có và được yêu cầu)
         proxy_settings = None
@@ -53,32 +55,26 @@ class BrowserEngine:
 
         # 3. Khởi chạy Playwright
         with sync_playwright() as p:
-            try:
-                # Cố gắng mở bằng Google Chrome thật trên máy tính
-                browser = p.chromium.launch(
-                    channel="chrome", 
-                    headless=False,
-                    ignore_default_args=["--enable-automation"], # Xóa thanh cảnh báo màu vàng
-                    args=[
-                        "--disable-blink-features=AutomationControlled",
-                        "--disable-webrtc-hw-encoding"
-                    ]
-                )
-            except Exception as e:
-                print("[!] Không tìm thấy Google Chrome thật, chuyển sang dùng Chromium mặc định...")
-                browser = p.chromium.launch(
-                    headless=False,
-                    ignore_default_args=["--enable-automation"],
-                    args=["--disable-blink-features=AutomationControlled"]
-                )
+            # Luôn sử dụng trình duyệt Chromium đi kèm với Playwright.
+            # Việc này đảm bảo mỗi phiên (session) được tạo ra là hoàn toàn mới,
+            # sạch sẽ và không bị ảnh hưởng bởi profile hay cookie từ trình duyệt Chrome có sẵn trên máy.
+            print("[*] Đang khởi chạy trình duyệt Chromium sạch...")
+            browser = p.chromium.launch(
+                headless=False,
+                ignore_default_args=["--enable-automation"], # Xóa thanh cảnh báo màu vàng
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-webrtc-hw-encoding",
+                    f"--window-size={v_width},{v_height}"
+                ]
+            )
 
             # Tạo Context sạch sẽ (Không lưu cookie, không chung chạ với phiên trước)
             context = browser.new_context(
+                no_viewport=True,
                 user_agent=device_profile["user_agent"],
-                viewport=device_profile["viewport"],
                 timezone_id=device_profile["timezone_id"],
                 locale=device_profile["locale"],
-                is_mobile=device_profile["is_mobile"],
                 proxy=proxy_settings
             )
 
@@ -94,9 +90,18 @@ class BrowserEngine:
             print("Đóng cửa sổ trình duyệt để kết thúc và XÓA SẠCH session.")
             print("=====================================================")
             
-            # Đợi người dùng đóng trình duyệt thủ công
-            page.wait_for_event("close", timeout=0)
-            
-            context.close()
-            browser.close()
+            # Đợi người dùng tắt hết tất cả các tab hoặc bấm dấu X đỏ tắt toàn bộ trình duyệt
+            try:
+                while context.pages:
+                    context.pages[0].wait_for_event("close", timeout=0)
+            except Exception:
+                pass # Bỏ qua lỗi ngắt kết nối khi người dùng tắt đột ngột (dấu X đỏ)
+
+            # Khi người dùng tự đóng trình duyệt, các lệnh dọn dẹp sau có thể báo lỗi.
+            # Ta bắt lỗi này để chương trình kết thúc êm đẹp.
+            try:
+                context.close()
+                browser.close()
+            except Exception:
+                pass # Bỏ qua lỗi vì trình duyệt đã bị người dùng đóng.
             print("[*] Đã đóng trình duyệt và dọn dẹp sạch sẽ Cookie/Cache.")
