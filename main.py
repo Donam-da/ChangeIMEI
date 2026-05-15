@@ -15,115 +15,130 @@ class AntiDetectGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("ChangeIMEI Anti-Detect Browser")
-        self.root.geometry("450x250")
+        self.root.geometry("675x375")
+        self.root.aspect(9, 5, 9, 5) # Khóa tỷ lệ khung hình cố định, chỉ cho kéo đường chéo
         self.root.configure(bg="#121212")
         
         self.engine = BrowserEngine()
+        self.engine.set_network_callback(self.update_network_analysis)
         
         # Thiết kế các thành phần Giao diện (UI)
-        tk.Label(root, text="CÔNG CỤ ANTI-DETECT: CHANGE IMEI", font=("Arial", 7, "bold"), fg="#00ffff", bg="#121212").pack(pady=7)
+        tk.Label(root, text="CÔNG CỤ ANTI-DETECT: CHANGE IMEI", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=10)
         
+        self.current_scale = 1.0
         self.is_pinned = False
-        self.btn_pin = tk.Button(root, text="📌 Ghim", font=("Arial", 4, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_pin, activebackground="#333333", activeforeground="#00e676")
-        self.btn_pin.place(x=390, y=7, width=50)
+        self.btn_pin = tk.Button(root, text="📌 Ghim", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_pin, activebackground="#333333", activeforeground="#00e676")
+        self.btn_pin.place(relx=1.0, x=-120, y=15, width=100)
 
         # Bảng thông tin mạng (Dùng lưới Grid để căn chỉnh Icon và Chữ luôn thẳng hàng)
         net_frame = tk.Frame(root, bg="#121212")
-        net_frame.pack(pady=(0, 5))
+        net_frame.pack(pady=(0, 8))
 
         mac_num = hex(uuid.getnode()).replace('0x', '').zfill(12)
         mac_address = ':'.join(mac_num[i: i + 2] for i in range(0, 12, 2)).upper()
         
-        self.mac_label = tk.Label(net_frame, text=f"MAC: {mac_address}", font=("Arial", 5, "bold"), fg="#b388ff", bg="#121212")
-        self.mac_label.grid(row=0, column=0, padx=4)
+        self.mac_label = tk.Label(net_frame, text=f"MAC: {mac_address}", font=("Arial", 8, "bold"), fg="#b388ff", bg="#121212")
+        self.mac_label.grid(row=0, column=0, padx=6)
 
-        self.ip_label = tk.Label(net_frame, text="🌐 IP: Đang kiểm...", font=("Arial", 5, "bold"), fg="#00e676", bg="#121212")
-        self.ip_label.grid(row=0, column=1, padx=4)
+        self.ip_label = tk.Label(net_frame, text="🌐 IP: Đang kiểm...", font=("Arial", 8, "bold"), fg="#00e676", bg="#121212")
+        self.ip_label.grid(row=0, column=1, padx=6)
 
-        self.ping_label = tk.Label(net_frame, text="⚡ Ping: ...", font=("Arial", 5, "bold"), fg="#ffb74d", bg="#121212")
-        self.ping_label.grid(row=0, column=2, padx=4)
+        self.ping_label = tk.Label(net_frame, text="⚡ Ping: ...", font=("Arial", 8, "bold"), fg="#ffb74d", bg="#121212")
+        self.ping_label.grid(row=0, column=2, padx=6)
 
-        self.speed_label = tk.Label(net_frame, text="⬇️ Speed: ...", font=("Arial", 5, "bold"), fg="#4dd0e1", bg="#121212")
-        self.speed_label.grid(row=0, column=3, padx=4)
+        self.speed_label = tk.Label(net_frame, text="⬇️ Speed: ...", font=("Arial", 8, "bold"), fg="#4dd0e1", bg="#121212")
+        self.speed_label.grid(row=0, column=3, padx=6)
 
-        self.data_label = tk.Label(net_frame, text="Data: 0 MB", font=("Arial", 5, "bold"), fg="#f48fb1", bg="#121212")
-        self.data_label.grid(row=0, column=4, padx=4)
+        self.data_label = tk.Label(net_frame, text="Data: 0 MB", font=("Arial", 8, "bold"), fg="#f48fb1", bg="#121212")
+        self.data_label.grid(row=0, column=4, padx=6)
 
-        tk.Label(root, text="Nhập link URL muốn mở:", font=("Arial", 5), fg="#e0e0e0", bg="#121212").pack()
+        self.analysis_label = tk.Label(root, text="🔍 Phân tích mạng: Đang chờ thao tác...", font=("Arial", 8, "bold"), fg="#b388ff", bg="#121212")
+        self.analysis_label.pack(pady=(0, 4))
+
+        tk.Label(root, text="Nhập link URL muốn mở:", font=("Arial", 8), fg="#e0e0e0", bg="#121212").pack()
         
         url_frame = tk.Frame(root, bg="#121212")
-        url_frame.pack(pady=2)
+        url_frame.pack(pady=4)
         
-        self.url_entry = tk.Entry(url_frame, width=27, font=("Arial", 5), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT)
-        self.url_entry.pack(side=tk.LEFT, ipady=1)
+        self.url_entry = tk.Entry(url_frame, width=40, font=("Arial", 8), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT)
+        self.url_entry.pack(side=tk.LEFT, ipady=2)
         self.url_entry.insert(0, "https://www.google.com/search?q=moneytask.top&sca_esv=3d73e6268d6609d9&sxsrf=ANbL-n5OwmW4jJHMCw_P-MHSjJYYql4e-Q%3A1778737875726&source=hp&ei=02IFas2XKteO2roP_vuQwQE&iflsig=AFdpzrgAAAAAagVw4whkttcjBBee1Pj39b_eAIp1hlot&oq=money&gs_lp=Egdnd3Mtd2l6IgVtb25leSoCCAAyBBAjGCcyChAAGIAEGIoFGEMyCxAAGIAEGLEDGIMBMgsQABiABBixAxiDATINEAAYgAQYigUYQxixAzILEAAYgAQYigUYkgMyFhAuGIAEGIoFGEMYsQMYyQMYxwEY0QMyChAAGIAEGIoFGEMyEBAuGIAEGIoFGEMYsQMYgwEyChAuGIAEGIoFGENImjRQyh5YqCRwAXgAkAEAmAHGB6AB4BaqAQkzLTIuMS4wLjK4AQHIAQD4AQGYAgagArsXqAIKwgIHECMY6gIYJ8ICDBAjGIAEGIoFGBMYJ8ICCxAuGIAEGLEDGIMBwgIIEC4YgAQYsQPCAg4QLhiABBiKBRixAxiDAcICCBAAGIAEGLEDwgIREC4YgAQYsQMYgwEYxwEY0QPCAhAQABiABBiKBRhDGLEDGIMBmAMN8QXuyFYW96YaBJIHCzEuMy0yLjEuMS4xoAepNLIHCTMtMi4xLjEuMbgHrhfCBwUyLTIuNMgHNoAIAQ&sclient=gws-wiz")
         
-        self.btn_toggle_url = tk.Button(url_frame, text="👁️", bg="#1e1e1e", fg="#00ffff", relief=tk.FLAT, font=("Arial", 5), width=1, command=self.toggle_url_visibility, activebackground="#333333", activeforeground="#00ffff")
-        self.btn_toggle_url.pack(side=tk.LEFT, padx=(2, 0), ipady=0)
+        self.btn_toggle_url = tk.Button(url_frame, text="👁️", bg="#1e1e1e", fg="#00ffff", relief=tk.FLAT, font=("Arial", 8), width=2, command=self.toggle_url_visibility, activebackground="#333333", activeforeground="#00ffff")
+        self.btn_toggle_url.pack(side=tk.LEFT, padx=(4, 0), ipady=0)
 
         # Các nút bấm
         btn_frame = tk.Frame(root, bg="#121212")
-        btn_frame.pack(pady=5)
+        btn_frame.pack(pady=8)
 
-        btn_style = {"font": ("Arial", 5, "bold"), "relief": tk.FLAT, "activebackground": "#00e5ff", "activeforeground": "black"}
+        btn_style = {"font": ("Arial", 8, "bold"), "relief": tk.FLAT, "activebackground": "#00e5ff", "activeforeground": "black"}
 
         self.btn_ip_that = tk.Button(btn_frame, text="🚀 Mở Trình Duyệt (IP Thật)", 
-                                     command=self.launch_ip_that, bg="#00bcd4", fg="black", width=12, **btn_style)
-        self.btn_ip_that.grid(row=0, column=0, padx=2, pady=2)
+                                     command=self.launch_ip_that, bg="#00bcd4", fg="black", width=18, **btn_style)
+        self.btn_ip_that.grid(row=0, column=0, padx=4, pady=4)
         
         self.btn_proxy = tk.Button(btn_frame, text="🌐 Mở Trình Duyệt (Proxy)", 
-                                   command=self.launch_proxy, bg="#00838f", fg="white", width=12, **btn_style)
-        self.btn_proxy.grid(row=0, column=1, padx=2, pady=2)
+                                   command=self.launch_proxy, bg="#00838f", fg="white", width=18, **btn_style)
+        self.btn_proxy.grid(row=0, column=1, padx=4, pady=4)
 
         self.btn_auto_login = tk.Button(btn_frame, text="🔑 Điền Tài Khoản", 
-                                        command=self.trigger_auto_login, bg="#263238", fg="#00bcd4", width=12,
+                                        command=self.trigger_auto_login, bg="#263238", fg="#00bcd4", width=18,
                                         state=tk.DISABLED, **btn_style)
-        self.btn_auto_login.grid(row=0, column=2, padx=2, pady=2)
+        self.btn_auto_login.grid(row=0, column=2, padx=4, pady=4)
 
         self.btn_auto_task_step = tk.Button(btn_frame, text="🤖 Làm nhiệm vụ Upto Step", 
-                                        command=self.trigger_auto_task_step, bg="#263238", fg="#00bcd4", width=12,
+                                        command=self.trigger_auto_task_step, bg="#263238", fg="#00bcd4", width=18,
                                         state=tk.DISABLED, **btn_style)
-        self.btn_auto_task_step.grid(row=1, column=0, padx=2, pady=2)
+        self.btn_auto_task_step.grid(row=1, column=0, padx=4, pady=4)
 
         self.btn_auto_task = tk.Button(btn_frame, text="🤖 Làm nhiệm vụ Lấy Mã", 
-                                        command=self.trigger_auto_task, bg="#263238", fg="#00bcd4", width=12,
+                                        command=self.trigger_auto_task, bg="#263238", fg="#00bcd4", width=18,
                                         state=tk.DISABLED, **btn_style)
-        self.btn_auto_task.grid(row=1, column=1, padx=2, pady=2)
+        self.btn_auto_task.grid(row=1, column=1, padx=4, pady=4)
 
-        self.btn_delete = tk.Button(btn_frame, text="🗑️ Xóa Session & Dọn Dẹp",
-                                    command=self.delete_session, bg="#b71c1c", fg="white", width=12,
-                                    state=tk.DISABLED, font=("Arial", 5, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white")
-        self.btn_delete.grid(row=1, column=2, padx=2, pady=2)
+        # Nhóm Nút Xóa và Bộ lọc tỷ lệ vào chung một ô lưới để không bao giờ bị đè
+        delete_and_scale_frame = tk.Frame(btn_frame, bg="#121212")
+        delete_and_scale_frame.grid(row=1, column=2, padx=4, pady=4)
+
+        self.btn_delete = tk.Button(delete_and_scale_frame, text="🗑️ Xóa Session & Dọn Dẹp",
+                                    command=self.delete_session, bg="#b71c1c", fg="white", width=13,
+                                    state=tk.DISABLED, font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white")
+        self.btn_delete.pack(side=tk.LEFT, padx=(0, 4))
+
+        self.scale_var = tk.StringVar(value="Size: x1.0")
+        self.scale_cb = ttk.Combobox(delete_and_scale_frame, textvariable=self.scale_var, values=["Size: x1.0", "Size: x1.2", "Size: x1.4", "Size: x1.6"], state="readonly", font=("Arial", 8), width=9)
+        self.scale_cb.pack(side=tk.LEFT)
+        self.scale_cb.bind("<<ComboboxSelected>>", self.apply_scale)
 
         # --- Hiển thị đường dẫn dữ liệu ---
         info_frame = tk.Frame(root, bg="#121212")
-        info_frame.pack(pady=(5, 0), fill=tk.X, padx=10)
+        info_frame.pack(pady=(8, 0), fill=tk.X, padx=15)
 
         tk.Label(info_frame, 
                  text="Nơi lưu trữ trình duyệt (máy ảo):", 
-                 font=("Arial", 4, "italic"), fg="#a0a0a0", bg="#121212",
-                 justify=tk.LEFT).pack(anchor='w', pady=(0, 1))
+                 font=("Arial", 7, "italic"), fg="#a0a0a0", bg="#121212",
+                 justify=tk.LEFT).pack(anchor='w', pady=(0, 2))
         
         browser_path = self.get_playwright_browser_path()
-        self.path_entry = tk.Entry(info_frame, font=("Courier", 4), bg="#1e1e1e", fg="#00bcd4", readonlybackground="#1e1e1e", relief=tk.FLAT)
+        self.path_entry = tk.Entry(info_frame, font=("Courier", 7), bg="#1e1e1e", fg="#00bcd4", readonlybackground="#1e1e1e", relief=tk.FLAT)
         self.path_entry.insert(0, browser_path)
         self.path_entry.config(state='readonly')
-        self.path_entry.pack(fill=tk.X, expand=True, ipady=1)
+        self.path_entry.pack(fill=tk.X, expand=True, ipady=2)
 
         tk.Label(info_frame, 
                  text="*Đây là nơi Playwright cài đặt các trình duyệt (Chromium, Firefox,...).\n*Dữ liệu phiên (cookie, cache) của mỗi lần chạy là tạm thời và sẽ bị xóa sạch.",
-                 font=("Arial", 4), fg="#4dd0e1", bg="#121212", justify=tk.LEFT).pack(anchor='w', pady=(1,0))
+                 font=("Arial", 7), fg="#4dd0e1", bg="#121212", justify=tk.LEFT).pack(anchor='w', pady=(2,0))
         # --- Kết thúc ---
 
         # --- Hiển thị thông số cấu hình giả lập ---
-        self.device_info_frame = tk.LabelFrame(root, text="Chi tiết trình duyệt ẩn danh vừa tạo:", font=("Arial", 4, "bold"), bg="#121212", fg="#00bcd4")
-        self.device_info_frame.pack(pady=(5, 0), fill=tk.BOTH, expand=False, padx=10)
+        self.device_info_frame = tk.LabelFrame(root, text="Chi tiết trình duyệt ẩn danh vừa tạo:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
+        self.device_info_frame.pack(pady=(8, 0), fill=tk.BOTH, expand=False, padx=15)
         
-        self.device_info_text = tk.Text(self.device_info_frame, height=2, font=("Courier", 4), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
-        self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        self.device_info_text = tk.Text(self.device_info_frame, height=3, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
+        self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
-        self.status_label = tk.Label(root, text="Trạng thái: Sẵn sàng", fg="#a0a0a0", bg="#121212", font=("Arial", 4))
-        self.status_label.pack(side=tk.BOTTOM, pady=5)
+        self.status_label = tk.Label(root, text="Trạng thái: Sẵn sàng", fg="#a0a0a0", bg="#121212", font=("Arial", 7))
+        self.status_label.pack(side=tk.BOTTOM, pady=8)
 
         # Đảm bảo dọn dẹp session khi người dùng đóng cửa sổ chính
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -142,6 +157,61 @@ class AntiDetectGUI:
 
         # Khởi động luồng theo dõi IP liên tục
         self.start_ip_monitor()
+
+    def update_network_analysis(self, cookie_count, prob_404, prob_overload=0.0, prob_bot=0.0):
+        def _update():
+            # Tự động đổi màu cảnh báo nếu bất kỳ thông số rủi ro nào vượt ngưỡng
+            max_risk = max(prob_404, prob_overload, prob_bot)
+            color = "#00e676" if max_risk <= 5 else "#ffb74d" if max_risk <= 20 else "#ff5252"
+            self.analysis_label.config(text=f"🔍 Cookies: {cookie_count} | ⚠️ 404: {prob_404:.1f}% | 🐌 Server: {prob_overload:.1f}% | 🤖 Bot/Spam: {prob_bot:.1f}%", fg=color)
+        self.root.after(0, _update)
+
+    def apply_scale(self, event=None):
+        """Áp dụng bộ lọc tỷ lệ phóng to giao diện"""
+        scale_str = self.scale_var.get()
+        if "1.2" in scale_str: self.current_scale = 1.2
+        elif "1.4" in scale_str: self.current_scale = 1.4
+        elif "1.6" in scale_str: self.current_scale = 1.6
+        else: self.current_scale = 1.0
+
+        new_w = int(900 * self.current_scale)
+        new_h = int(500 * self.current_scale)
+        self.root.geometry(f"{new_w}x{new_h}")
+
+        # Tính toán lại tọa độ cho nút nằm đè (Ghim)
+        self.btn_pin.place(relx=1.0, x=int(-120 * self.current_scale), y=int(15 * self.current_scale), width=int(100 * self.current_scale))
+
+        self._scale_widget_tree(self.root, self.current_scale)
+
+    def _scale_widget_tree(self, widget, f):
+        """Đệ quy quét toàn bộ giao diện và cập nhật kích thước Font chữ"""
+        if not hasattr(self, '_original_fonts'):
+            self._original_fonts = {}
+            
+        if widget not in self._original_fonts:
+            try:
+                self._original_fonts[widget] = widget.cget('font')
+            except Exception:
+                self._original_fonts[widget] = None
+
+        orig_font = self._original_fonts[widget]
+        if orig_font:
+            try:
+                if isinstance(orig_font, tuple) or isinstance(orig_font, list):
+                    new_size = max(1, int(orig_font[1] * f))
+                    new_font = (orig_font[0], new_size) + tuple(orig_font[2:])
+                    widget.config(font=new_font)
+                elif isinstance(orig_font, str):
+                    parts = orig_font.split()
+                    if len(parts) >= 2 and parts[1].isdigit():
+                        new_size = max(1, int(int(parts[1]) * f))
+                        new_font = f"{parts[0]} {new_size} {' '.join(parts[2:])}"
+                        widget.config(font=new_font)
+            except Exception:
+                pass
+
+        for child in widget.winfo_children():
+            self._scale_widget_tree(child, f)
 
     def start_ip_monitor(self):
         """Chạy luồng ngầm liên tục kiểm tra IP mạng của máy mỗi 2 giây"""
@@ -247,19 +317,21 @@ class AntiDetectGUI:
         
         prog_win = tk.Toplevel(self.root)
         prog_win.title("Đang nạp môi trường...")
-        prog_win.geometry("210x75")
+        prog_win.geometry(f"{int(420*self.current_scale)}x{int(150*self.current_scale)}")
         prog_win.configure(bg="#121212")
         prog_win.transient(self.root)
         prog_win.grab_set()
         prog_win.protocol("WM_DELETE_WINDOW", lambda: None)
         
-        tk.Label(prog_win, text="Đang khởi tạo cấu hình ẩn danh hoàn toàn mới...", font=("Arial", 5, "bold"), fg="#00ffff", bg="#121212").pack(pady=5)
+        tk.Label(prog_win, text="Đang khởi tạo cấu hình ẩn danh hoàn toàn mới...", font=("Arial", 8, "bold"), fg="#00ffff", bg="#121212").pack(pady=8)
         
-        progress = ttk.Progressbar(prog_win, orient=tk.HORIZONTAL, length=190, mode='determinate')
-        progress.pack(pady=2)
+        progress = ttk.Progressbar(prog_win, orient=tk.HORIZONTAL, length=int(380*self.current_scale), mode='determinate')
+        progress.pack(pady=4)
         
-        step_label = tk.Label(prog_win, text="Bắt đầu...", font=("Courier", 4), fg="#00bcd4", bg="#121212")
-        step_label.pack(pady=2)
+        step_label = tk.Label(prog_win, text="Bắt đầu...", font=("Courier", 7), fg="#00bcd4", bg="#121212")
+        step_label.pack(pady=4)
+        
+        self._scale_widget_tree(prog_win, self.current_scale)
         
         steps = [
             "Đang sinh dữ liệu thiết bị 1/5...",
@@ -333,18 +405,18 @@ class AntiDetectGUI:
         """Hiển thị hộp thoại đếm ngược 3s trước khi tự động dọn dẹp và thoát."""
         dialog = tk.Toplevel(self.root)
         dialog.title("Cảnh báo thoát")
-        dialog.geometry("190x80")
+        dialog.geometry(f"{int(380*self.current_scale)}x{int(160*self.current_scale)}")
         dialog.configure(bg="#121212")
         dialog.transient(self.root) # Nổi trên cửa sổ chính
         dialog.grab_set() # Khóa cửa sổ chính cho đến khi xử lý xong hộp thoại
         
-        tk.Label(dialog, text="Một phiên làm việc ẩn danh đang tồn tại!\nBạn hãy dọn dẹp hoặc hệ thống sẽ tự động dọn dẹp sau:", font=("Arial", 5), fg="#e0e0e0", bg="#121212").pack(pady=5)
+        tk.Label(dialog, text="Một phiên làm việc ẩn danh đang tồn tại!\nBạn hãy dọn dẹp hoặc hệ thống sẽ tự động dọn dẹp sau:", font=("Arial", 8), fg="#e0e0e0", bg="#121212").pack(pady=8)
         
-        countdown_label = tk.Label(dialog, text="3", font=("Arial", 9, "bold"), fg="#ff5252", bg="#121212")
+        countdown_label = tk.Label(dialog, text="3", font=("Arial", 14, "bold"), fg="#ff5252", bg="#121212")
         countdown_label.pack()
         
         btn_frame = tk.Frame(dialog, bg="#121212")
-        btn_frame.pack(pady=5)
+        btn_frame.pack(pady=8)
         
         countdown_active = [True] # Dùng list để dễ dàng thay đổi state trong local function
         
@@ -372,9 +444,11 @@ class AntiDetectGUI:
             countdown_active[0] = False
             dialog.destroy()
             
-        tk.Button(btn_frame, text="Dọn dẹp & Thoát ngay", command=do_cleanup_and_exit, bg="#b71c1c", fg="white", font=("Arial", 4, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white").pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="Hủy (Quay lại)", command=cancel, bg="#333333", fg="white", font=("Arial", 4), relief=tk.FLAT, activebackground="#555555", activeforeground="white").pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Dọn dẹp & Thoát ngay", command=do_cleanup_and_exit, bg="#b71c1c", fg="white", font=("Arial", 7, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white").pack(side=tk.LEFT, padx=8)
+        tk.Button(btn_frame, text="Hủy (Quay lại)", command=cancel, bg="#333333", fg="white", font=("Arial", 7), relief=tk.FLAT, activebackground="#555555", activeforeground="white").pack(side=tk.LEFT, padx=8)
         
+        self._scale_widget_tree(dialog, self.current_scale)
+
         def tick(time_left):
             if not countdown_active[0] or not dialog.winfo_exists():
                 return
@@ -417,6 +491,7 @@ class AntiDetectGUI:
             self.btn_auto_task.config(state=tk.NORMAL)
             self.btn_auto_task_step.config(state=tk.NORMAL)
             self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="#00bcd4")
+            self.analysis_label.config(text="🔍 Phân tích mạng: Đang thu thập dữ liệu...", fg="#b388ff")
         else:
             self.btn_auto_login.config(state=tk.DISABLED)
             self.btn_auto_task.config(state=tk.DISABLED)
@@ -495,19 +570,21 @@ class AntiDetectGUI:
         # Tạo cửa sổ hiển thị tiến trình
         prog_win = tk.Toplevel(self.root)
         prog_win.title("Đang dọn dẹp...")
-        prog_win.geometry("210x75")
+        prog_win.geometry(f"{int(420*self.current_scale)}x{int(150*self.current_scale)}")
         prog_win.configure(bg="#121212")
         prog_win.transient(self.root)
         prog_win.grab_set() # Khóa màn hình chính
         prog_win.protocol("WM_DELETE_WINDOW", lambda: None) # Vô hiệu hóa nút X để tránh làm gián đoạn
 
-        tk.Label(prog_win, text="Đang tiêu hủy dấu vết, Cookie, Lịch sử...", font=("Arial", 5, "bold"), fg="#00ffff", bg="#121212").pack(pady=5)
+        tk.Label(prog_win, text="Đang tiêu hủy dấu vết, Cookie, Lịch sử...", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=10)
 
-        progress = ttk.Progressbar(prog_win, orient=tk.HORIZONTAL, length=190, mode='determinate')
-        progress.pack(pady=2)
+        progress = ttk.Progressbar(prog_win, orient=tk.HORIZONTAL, length=int(380*self.current_scale), mode='determinate')
+        progress.pack(pady=5)
 
-        file_label = tk.Label(prog_win, text="Khởi tạo...", font=("Courier", 4), fg="#00bcd4", bg="#121212")
-        file_label.pack(pady=2)
+        file_label = tk.Label(prog_win, text="Khởi tạo...", font=("Courier", 8), fg="#00bcd4", bg="#121212")
+        file_label.pack(pady=5)
+        
+        self._scale_widget_tree(prog_win, self.current_scale)
 
         # Các thành phần dữ liệu trình duyệt bị xóa khỏi RAM
         items_to_wipe = [

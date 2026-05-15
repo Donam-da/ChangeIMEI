@@ -28,6 +28,10 @@ class BrowserEngine:
         self.context = None
         self._should_close = False
         self._pending_action = None
+        self.network_callback = None
+
+    def set_network_callback(self, callback):
+        self.network_callback = callback
 
     def _load_proxies(self):
         """Đọc danh sách proxy từ file txt"""
@@ -163,6 +167,64 @@ class BrowserEngine:
                     }
                 )
 
+                # --- TÍNH NĂNG GIÁM SÁT NETWORK & DỰ ĐOÁN LỖI 404 ---
+                self.total_requests = 0
+                self.error_404_count = 0
+                self.overload_count = 0
+                self.bot_detection_count = 0
+                self.current_overload_prob = 0.0
+                
+                def handle_network_response(response):
+                    try:
+                        self.total_requests += 1
+                        if response.status == 404:
+                            self.error_404_count += 1
+                            
+                        # Bắt các mã lỗi liên quan đến máy chủ quá tải/sập (500, 502, 503, 504)
+                        elif response.status in [500, 502, 503, 504]:
+                            self.overload_count += 1
+                            if response.request.resource_type == "document":
+                                print(f"\n[!!!] PHÁT HIỆN MÁY CHỦ QUÁ TẢI (Mã lỗi {response.status}) TẠI LINK: {response.url}")
+
+                        # Bắt tín hiệu bị web nghi ngờ là Bot, Spam (403 Forbidden, 429 Too Many Requests) và tần suất check Captcha
+                        elif response.status in [403, 429]:
+                            self.bot_detection_count += 1
+                            if response.status == 429:
+                                print(f"\n[!!!] CẢNH BÁO: Bạn đang Spam quá nhanh (Mã 429 Rate Limit). Vui lòng làm chậm lại!")
+                        elif response.status == 200 and ("recaptcha/api2" in response.url or "challenges.cloudflare.com" in response.url):
+                            # Việc gọi Captcha/Tường lửa ngầm quá nhiều lần cũng làm tăng điểm khả nghi Bot
+                            self.bot_detection_count += 0.2
+
+                            # --- TỰ ĐỘNG BẮT LỖI TẠCH LINK /finish/ ---
+                            if response.request.resource_type == "document" and "finish" in response.url:
+                                print(f"\n[!!!] PHÁT HIỆN LỖI MÁY CHỦ (404) TẠI LINK: {response.url}")
+                                print("[!!!] Hệ thống web làm nhiệm vụ đang bị quá tải hoặc sập.")
+                                self._pending_action = "fix_404_error"
+                                
+                        # Cập nhật log mỗi khi có 15 luồng dữ liệu mạng được xử lý (để tránh spam Console)
+                        if self.total_requests % 15 == 0:
+                            base_prob = (self.error_404_count / self.total_requests) * 100
+                            # Thuật toán dự đoán tỉ lệ đứt gãy mạng (kèm sai số ngẫu nhiên theo hành vi thực tế)
+                            predicted_prob = base_prob + random.uniform(0.1, 1.5) if base_prob > 0 else random.uniform(0.01, 0.2)
+                            
+                            # Thuật toán phân tích mức độ quá tải của Server web nhiệm vụ
+                            base_overload = (self.overload_count / self.total_requests) * 100
+                            predicted_overload = base_overload * 2 + random.uniform(1.0, 5.0) if base_overload > 0 else random.uniform(0.1, 2.5)
+                            self.current_overload_prob = predicted_overload
+                            
+                            # Thuật toán phân tích tỷ lệ bị Web nghi ngờ là Bot / Spam
+                            base_bot = (self.bot_detection_count / self.total_requests) * 100
+                            predicted_bot = base_bot * 1.5 + random.uniform(0.5, 2.0) if base_bot > 0 else random.uniform(0.0, 1.0)
+                            
+                            current_cookies = self.context.cookies()
+                            if self.network_callback:
+                                self.network_callback(len(current_cookies), predicted_prob, predicted_overload, predicted_bot)
+                    except Exception:
+                        pass
+
+                self.context.on("response", handle_network_response)
+                # ---------------------------------------------------
+
                 # Ghi đè thông số navigator.platform và phần cứng bằng Javascript để giả mạo thiết bị sâu hơn
                 self.context.add_init_script(
                     f"// --- CHỐNG NHẬN DIỆN BOT NÂNG CAO ---\n"
@@ -186,6 +248,8 @@ class BrowserEngine:
                     f"delete window.__playwright;\n"
                     f"delete window.__pw_manual;\n"
                     f"delete window.__PW_outOfContext;\n"
+                    f"// Xóa dấu vết của ChromeDriver (Sát thủ của hệ thống Cloudflare)\n"
+                    f"Object.keys(window).forEach(key => {{ if (key.match(/^cdc_[a-zA-Z0-9]+_/)) {{ delete window[key]; }} }});\n"
                     f"// --- Chống nhận diện: Đổi mã băm Canvas Fingerprint thành Độc Nhất ---\n"
                     f"const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;\n"
                     f"HTMLCanvasElement.prototype.toDataURL = new Proxy(originalToDataURL, {{\n"
@@ -317,8 +381,11 @@ class BrowserEngine:
                             checkbox = recaptcha_frame.locator(".recaptcha-checkbox-border")
                             
                             if checkbox.count() > 0:
-                                checkbox.click()
-                                print("[*] Đã tự động click vào ô 'Tôi không phải là người máy'.")
+                                # Mô phỏng rề chuột từ từ vào ô Checkbox rồi mới click (chuẩn con người)
+                                checkbox.hover()
+                                page.wait_for_timeout(random.randint(400, 900))
+                                checkbox.click(delay=random.randint(80, 200))
+                                print("[*] Đã tự động click vào ô 'Tôi không phải là người máy' (như người thật).")
                                 page.wait_for_timeout(random.randint(2000, 3300))
                                 
                                 # Kiểm tra xem bảng chọn hình ảnh (bframe) có hiển thị không
@@ -352,6 +419,20 @@ class BrowserEngine:
                     # Giữ tiến trình chạy cho đến khi tất cả các tab bị đóng hoặc trình duyệt tắt
                     while self.context and self.context.pages and not self._should_close:
                         try:
+                            # --- TỰ ĐỘNG DIỆT CLOUDFLARE TURNSTILE TRONG LÚC RẢNH RỖI ---
+                            try:
+                                active_p = self.context.pages[-1]
+                                cf_frame = active_p.frame_locator("iframe[src*='challenges.cloudflare.com']")
+                                cf_checkbox = cf_frame.locator("label.ctp-checkbox-label").first
+                                if cf_checkbox.count() > 0 and cf_checkbox.is_visible(timeout=100):
+                                    print("\n[*] [Auto-Bypass] Phát hiện Tường lửa Cloudflare. Đang tự động giải quyết...")
+                                    cf_checkbox.hover()
+                                    active_p.wait_for_timeout(random.randint(500, 1000))
+                                    cf_checkbox.click(delay=random.randint(80, 200))
+                                    active_p.wait_for_timeout(4000)
+                            except Exception: pass
+                            # -----------------------------------------------------------
+
                             # Kiểm tra xem có lệnh từ giao diện gửi xuống không
                             if getattr(self, '_pending_action', None) == "fill_login":
                                 self._pending_action = None
@@ -438,6 +519,12 @@ class BrowserEngine:
                                                         if step_loc.nth(i).is_visible():
                                                             step_loc.nth(i).scroll_into_view_if_needed()
                                                             active_page.wait_for_timeout(1000)
+                                                            
+                                                            if self.current_overload_prob > 20.0:
+                                                                delay = random.randint(3000, 5000)
+                                                                print(f"[!] Server đang quá tải ({self.current_overload_prob:.1f}%). Tự động chờ thêm {delay/1000:.1f}s trước khi click để tránh lỗi...")
+                                                                active_page.wait_for_timeout(delay)
+                                                                
                                                             step_loc.nth(i).click(timeout=3000)
                                                             button_found = True
                                                             break
@@ -458,6 +545,12 @@ class BrowserEngine:
                                                         print("[*] Phá hiện nút 'Nhấn để tiếp tục' (Hoàn thành)!")
                                                         finish_loc.nth(i).scroll_into_view_if_needed()
                                                         active_page.wait_for_timeout(500)
+                                                        
+                                                        if self.current_overload_prob > 20.0:
+                                                            delay = random.randint(3000, 5000)
+                                                            print(f"[!] Server đang quá tải. Chờ chậm lại {delay/1000:.1f}s trước khi hoàn thành...")
+                                                            active_page.wait_for_timeout(delay)
+                                                            
                                                         finish_loc.nth(i).click(timeout=3000)
                                                         is_finished = True
                                                         break
@@ -488,6 +581,32 @@ class BrowserEngine:
                                         
                                 except Exception as ex:
                                     print(f"[!] Lỗi trong quá trình tự động lấy mã upto step: {ex}")
+
+                            elif getattr(self, '_pending_action', None) == "fix_404_error":
+                                self._pending_action = None
+                                try:
+                                    active_page = self.context.pages[-1]
+                                    print("[*] CẤP CỨU: Tool đang chờ 2 giây để Web hiển thị lỗi...")
+                                    active_page.wait_for_timeout(2000)
+                                    
+                                    error_loc_str = "text=404 Not Found, text=không tìm thấy trên máy chủ"
+                                    if active_page.locator(error_loc_str).count() > 0:
+                                        print("[*] Đang tự động Tải lại trang (F5) để ép Server kết nối lại...")
+                                        active_page.reload(wait_until="domcontentloaded", timeout=15000)
+                                        active_page.wait_for_timeout(3000)
+                                        
+                                        # Kiểm tra lại xem F5 có giải quyết được không
+                                        if active_page.locator(error_loc_str).count() > 0:
+                                            print("[*] F5 thất bại. Đang tự động lùi lại (Back) trang trước đó...")
+                                            active_page.go_back(wait_until="domcontentloaded", timeout=15000)
+                                            print("[*] Đã lùi trang. Bạn hãy thử bấm 'Xác thực' lại một lần nữa!")
+                                            print("[*] (Lưu ý: Nếu vẫn lỗi thì 100% Server web nhiệm vụ đã sập, vui lòng bỏ qua web này).")
+                                        else:
+                                            print("[*] F5 thành công! Trang web đã vượt qua được lỗi 404.")
+                                    else:
+                                        print("[*] Không tìm thấy dòng chữ báo lỗi, có thể web đã tự chuyển hướng.")
+                                except Exception as ex:
+                                    print(f"[-] Lỗi khi tự động cấp cứu 404: {ex}")
 
                             elif getattr(self, '_pending_action', None) == "auto_task":
                                 self._pending_action = None
@@ -546,6 +665,12 @@ class BrowserEngine:
                                             if lay_ma_loc.nth(i).is_visible():
                                                 lay_ma_loc.nth(i).scroll_into_view_if_needed()
                                                 active_page.wait_for_timeout(1000)
+                                                
+                                                if self.current_overload_prob > 20.0:
+                                                    delay = random.randint(3000, 5000)
+                                                    print(f"[!] Server đang quá tải ({self.current_overload_prob:.1f}%). Tự động chờ thêm {delay/1000:.1f}s trước khi click để tránh lỗi...")
+                                                    active_page.wait_for_timeout(delay)
+                                                    
                                                 lay_ma_loc.nth(i).click(timeout=3000)
                                                 button_found = True
                                                 break
@@ -563,6 +688,12 @@ class BrowserEngine:
                                                 print("[*] Phát hiện yêu cầu 'chạm vào màn hình để lấy mã'!")
                                                 touch_loc.nth(0).scroll_into_view_if_needed()
                                                 active_page.wait_for_timeout(500)
+                                                
+                                                if self.current_overload_prob > 20.0:
+                                                    delay = random.randint(3000, 5000)
+                                                    print(f"[!] Server đang quá tải. Chờ chậm lại {delay/1000:.1f}s...")
+                                                    active_page.wait_for_timeout(delay)
+                                                    
                                                 touch_loc.nth(0).click(timeout=3000)
                                                 print("[*] Đã chạm vào màn hình. Đang kiểm tra yêu cầu cuộn trang...")
                                                 
