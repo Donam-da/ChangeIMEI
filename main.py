@@ -64,7 +64,7 @@ class AntiDetectGUI:
         self.data_label = tk.Label(net_frame, text="Data: 0 MB", font=("Arial", 8, "bold"), fg="#f48fb1", bg="#121212")
         self.data_label.grid(row=0, column=4, padx=6)
 
-        self.analysis_label = tk.Label(root, text="🔍 Phân tích mạng: Đang chờ thao tác...", font=("Arial", 8, "bold"), fg="#b388ff", bg="#121212")
+        self.analysis_label = tk.Label(root, text="🔍 Phân tích mạng: Đang chờ thao tác...", font=("Arial", 8, "bold"), fg="#ffff00", bg="#121212")
         self.analysis_label.pack(pady=(0, 4))
 
         tk.Label(root, text="Nhập link URL muốn mở:", font=("Arial", 8), fg="#e0e0e0", bg="#121212").pack()
@@ -242,7 +242,7 @@ class AntiDetectGUI:
             "#00ffff": "#00509e", "#e0e0e0": "#333333", "#b388ff": "#5e35b1",
             "#00e676": "#2e7d32", "#ffb74d": "#ef6c00", "#4dd0e1": "#00838f",
             "#f48fb1": "#ad1457", "#a0a0a0": "#666666", "#00bcd4": "#1565c0",
-            "#ff5252": "#d32f2f"
+            "#ff5252": "#d32f2f", "#ffff00": "#f57f17"
         }
         if not to_light:
             bg_map = {v: k for k, v in bg_map.items()}
@@ -660,7 +660,7 @@ class AntiDetectGUI:
             self.btn_auto_task.config(state=tk.NORMAL)
             self.btn_auto_task_step.config(state=tk.NORMAL)
             self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg=self.get_color("#00bcd4"))
-            self.analysis_label.config(text="🔍 Phân tích mạng: Đang thu thập dữ liệu...", fg=self.get_color("#b388ff"))
+            self.analysis_label.config(text="🔍 Phân tích mạng: Đang thu thập dữ liệu...", fg=self.get_color("#ffff00"))
         else:
             self.btn_auto_login.config(state=tk.DISABLED)
             self.btn_auto_task.config(state=tk.DISABLED)
