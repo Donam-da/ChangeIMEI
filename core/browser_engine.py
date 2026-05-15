@@ -280,28 +280,8 @@ class BrowserEngine:
                     f"}});\n"
                 )
 
-                page = self.context.new_page()
-                
-                # --- TĂNG SỨC CHỊU ĐỰNG MẠNG (NETWORK RESILIENCE) ---
-                # Giúp trình duyệt kiên nhẫn chờ đợi khi mạng lag hoặc rớt tạm thời mà không đánh hỏng nhiệm vụ
-                self.context.set_default_timeout(60000) # Chờ tối đa 60s cho các thao tác (tìm nút, click, gõ)
-                self.context.set_default_navigation_timeout(90000) # Chờ tối đa 90s khi tải trang
-                
-                # ĐÃ TẮT apply_stealth(page): Tránh xung đột với khối add_init_script bên trên. Việc ghi đè thông số 2 lần sẽ khiến Google phát hiện ra Bot.
-                
-                # --- LỚP BẢO VỆ 1: CHẶN POPUP MỚI TẠI CẤP ĐỘ LÕI TRÌNH DUYỆT (PLAYWRIGHT) ---
-                def block_new_tabs(new_page):
-                    # Nếu trang mới mở ra không phải là tab gốc đang làm nhiệm vụ -> lập tức đóng lại
-                    if new_page != page:
-                        try:
-                            new_page.close()
-                            print("[Anti-Detect] Đã tự động đóng một Popup/Tab quảng cáo cố tình mở ra.")
-                        except Exception:
-                            pass
-                self.context.on("page", block_new_tabs)
-
-                # --- ÉP BUỘC TẤT CẢ CHẠY TRÊN 1 TAB DUY NHẤT ---
-                page.add_init_script("""
+                # --- ÉP MỞ LINK TRONG CÙNG TAB (ÁP DỤNG CHO MỌI TAB TRONG CONTEXT) ---
+                self.context.add_init_script("""
                     // 1. Ghi đè window.open để mở đè lên tab hiện tại
                     window.open = function(url) {
                         window.location.href = url;
@@ -329,8 +309,16 @@ class BrowserEngine:
                         observer.observe(document, { childList: true, subtree: true });
                     });
                 """)
-                # ---------------------------------------------
 
+                page = self.context.new_page()
+                
+                # --- TĂNG SỨC CHỊU ĐỰNG MẠNG (NETWORK RESILIENCE) ---
+                # Giúp trình duyệt kiên nhẫn chờ đợi khi mạng lag hoặc rớt tạm thời mà không đánh hỏng nhiệm vụ
+                self.context.set_default_timeout(60000) # Chờ tối đa 60s cho các thao tác (tìm nút, click, gõ)
+                self.context.set_default_navigation_timeout(90000) # Chờ tối đa 90s khi tải trang
+                
+                # ĐÃ TẮT apply_stealth(page): Tránh xung đột với khối add_init_script bên trên. Việc ghi đè thông số 2 lần sẽ khiến Google phát hiện ra Bot.
+                
                 try:
                     # --- BƯỚC WARM-UP: TRÁNH BỊ NHẬN DIỆN LÀ BOT MỞ TAB SIÊU TỐC ---
                     # 1. Khởi động ở trang trắng (cho trình duyệt vài giây để áp dụng toàn bộ thông số ẩn danh)
@@ -422,7 +410,7 @@ class BrowserEngine:
 
                 print("=====================================================")
                 print("Trình duyệt đang mở! Bạn có thể thao tác tay.")
-                print("Đóng cửa sổ trình duyệt hoặc bấm nút 'Xóa Session' để dọn dẹp.")
+                print("Đóng cửa sổ trình duyệt hoặc bấm nút 'Delete' để dọn dẹp.")
                 print("=====================================================")
 
                 on_launch_callback(device_profile)

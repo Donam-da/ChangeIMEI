@@ -93,7 +93,7 @@ class AntiDetectGUI:
                                    command=self.launch_proxy, bg="#00838f", fg="white", width=18, **btn_style)
         self.btn_proxy.grid(row=0, column=1, padx=4, pady=4)
 
-        self.btn_auto_login = tk.Button(btn_frame, text="🔑 Điền Tài Khoản", 
+        self.btn_auto_login = tk.Button(btn_frame, text="🔑 Auto đăng nhập", 
                                         command=self.trigger_auto_login, bg="#263238", fg="#00bcd4", width=18,
                                         state=tk.DISABLED, **btn_style)
         self.btn_auto_login.grid(row=0, column=2, padx=4, pady=4)
@@ -113,7 +113,7 @@ class AntiDetectGUI:
         delete_and_scale_frame = tk.Frame(btn_frame, bg="#121212")
         delete_and_scale_frame.grid(row=1, column=2, padx=4, pady=4)
 
-        self.btn_delete = tk.Button(delete_and_scale_frame, text="🗑️ Xóa Session & Dọn Dẹp",
+        self.btn_delete = tk.Button(delete_and_scale_frame, text="🗑️ Delete",
                                     command=self.delete_session, bg="#b71c1c", fg="white", width=13,
                                     state=tk.DISABLED, font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white")
         self.btn_delete.pack(side=tk.LEFT, padx=(0, 4))
@@ -175,7 +175,7 @@ class AntiDetectGUI:
         def _update():
             # Tự động đổi màu cảnh báo nếu bất kỳ thông số rủi ro nào vượt ngưỡng
             max_risk = max(prob_404, prob_overload, prob_bot)
-            color = "#00e676" if max_risk <= 5 else "#ffb74d" if max_risk <= 20 else "#ff5252"
+            color = "#ffff00" if max_risk <= 5 else "#ffb74d" if max_risk <= 20 else "#ff5252"
             self.analysis_label.config(text=f"🔍 Cookies: {cookie_count} | ⚠️ 404: {prob_404:.1f}% | 🐌 Server: {prob_overload:.1f}% | 🤖 Bot: {prob_bot:.1f}% | ⚙️ Lệnh Auto: {auto_cmds}", fg=self.get_color(color))
         self.root.after(0, _update)
 
@@ -323,8 +323,8 @@ class AntiDetectGUI:
         dialog_w = int(300 * self.current_scale)
         dialog_h = int(230 * self.current_scale)
         self.root.update_idletasks()
-        main_x = self.root.winfo_x()
-        main_y = self.root.winfo_y()
+        main_x = self.root.winfo_rootx()
+        main_y = self.root.winfo_rooty()
         main_w = self.root.winfo_width()
         main_h = self.root.winfo_height()
         
@@ -484,7 +484,14 @@ class AntiDetectGUI:
         
         prog_win = tk.Toplevel(self.root)
         prog_win.title("Đang nạp môi trường...")
-        prog_win.geometry(f"{int(420*self.current_scale)}x{int(150*self.current_scale)}")
+        
+        dialog_w = int(420 * self.current_scale)
+        dialog_h = int(150 * self.current_scale)
+        self.root.update_idletasks()
+        pos_x = self.root.winfo_rootx() + (self.root.winfo_width() // 2) - (dialog_w // 2)
+        pos_y = self.root.winfo_rooty() + (self.root.winfo_height() // 2) - (dialog_h // 2)
+        prog_win.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
+        
         prog_win.configure(bg="#121212")
         prog_win.transient(self.root)
         prog_win.grab_set()
@@ -573,7 +580,14 @@ class AntiDetectGUI:
         """Hiển thị hộp thoại đếm ngược 3s trước khi tự động dọn dẹp và thoát."""
         dialog = tk.Toplevel(self.root)
         dialog.title("Cảnh báo thoát")
-        dialog.geometry(f"{int(380*self.current_scale)}x{int(160*self.current_scale)}")
+        
+        dialog_w = int(380 * self.current_scale)
+        dialog_h = int(160 * self.current_scale)
+        self.root.update_idletasks()
+        pos_x = self.root.winfo_rootx() + (self.root.winfo_width() // 2) - (dialog_w // 2)
+        pos_y = self.root.winfo_rooty() + (self.root.winfo_height() // 2) - (dialog_h // 2)
+        dialog.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
+        
         dialog.configure(bg="#121212")
         dialog.transient(self.root) # Nổi trên cửa sổ chính
         dialog.grab_set() # Khóa cửa sổ chính cho đến khi xử lý xong hộp thoại
@@ -659,7 +673,7 @@ class AntiDetectGUI:
             self.btn_auto_login.config(state=tk.NORMAL)
             self.btn_auto_task.config(state=tk.NORMAL)
             self.btn_auto_task_step.config(state=tk.NORMAL)
-            self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg=self.get_color("#00bcd4"))
+            self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Delete' để dọn dẹp.", fg=self.get_color("#00bcd4"))
             self.analysis_label.config(text="🔍 Phân tích mạng: Đang thu thập dữ liệu...", fg=self.get_color("#ffff00"))
         else:
             self.btn_auto_login.config(state=tk.DISABLED)
@@ -678,7 +692,7 @@ class AntiDetectGUI:
             self.engine.login_password = creds.get("password")
             self.engine._pending_action = "fill_login"
             self.status_label.config(text="Trạng thái: Đang tự động điền tài khoản...", fg=self.get_color("#00bcd4"))
-            self.root.after(2000, lambda: self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg=self.get_color("#00bcd4")))
+            self.root.after(2000, lambda: self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Delete' để dọn dẹp.", fg=self.get_color("#00bcd4")))
             
     def trigger_auto_task(self):
         """Gửi lệnh thực hiện nhiệm vụ lấy mã đến luồng duyệt web"""
@@ -704,7 +718,7 @@ class AntiDetectGUI:
             # Callback này sẽ được gọi từ worker thread khi trình duyệt đã mở thành công
             def on_launch_success(device_profile):
                 def update_ui():
-                    self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg=self.get_color("#00bcd4"))
+                    self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Delete' để dọn dẹp.", fg=self.get_color("#00bcd4"))
                     self.update_device_info_display(device_profile)
                 self.root.after(0, update_ui)
 
@@ -726,7 +740,7 @@ class AntiDetectGUI:
                     self.btn_ip_that.config(state=tk.DISABLED)
                     self.btn_proxy.config(state=tk.DISABLED)
                     self.btn_delete.config(state=tk.NORMAL)
-                    self.status_label.config(text="Trạng thái: Trình duyệt đã đóng. Vui lòng bấm 'Xóa Session' để dọn dẹp.", fg=self.get_color("#ff5252"))
+                    self.status_label.config(text="Trạng thái: Trình duyệt đã đóng. Vui lòng bấm 'Delete' để dọn dẹp.", fg=self.get_color("#ff5252"))
             self.root.after(0, on_browser_thread_exit)
 
     def launch_ip_that(self):
@@ -746,7 +760,16 @@ class AntiDetectGUI:
         # Tạo cửa sổ hiển thị tiến trình
         prog_win = tk.Toplevel(self.root)
         prog_win.title("Đang dọn dẹp...")
-        prog_win.geometry(f"{int(420*self.current_scale)}x{int(150*self.current_scale)}")
+        
+        dialog_w = int(420 * self.current_scale)
+        dialog_h = int(150 * self.current_scale)
+        self.root.update_idletasks()
+        main_x = self.root.winfo_rootx()
+        main_y = self.root.winfo_rooty()
+        main_w = self.root.winfo_width()
+        main_h = self.root.winfo_height()
+        
+        prog_win.geometry(f"{dialog_w}x{dialog_h}+{main_x + (main_w // 2) - (dialog_w // 2)}+{main_y + (main_h // 2) - (dialog_h // 2)}")
         prog_win.configure(bg="#121212")
         prog_win.transient(self.root)
         prog_win.grab_set() # Khóa màn hình chính
