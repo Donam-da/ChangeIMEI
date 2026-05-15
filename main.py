@@ -60,10 +60,10 @@ class AntiDetectGUI:
         # --- Kết thúc ---
 
         # --- Hiển thị thông số cấu hình giả lập ---
-        device_info_frame = tk.LabelFrame(root, text="Chi tiết trình duyệt ẩn danh vừa tạo:", font=("Arial", 9, "bold"))
-        device_info_frame.pack(pady=(10, 0), fill=tk.BOTH, expand=False, padx=20)
+        self.device_info_frame = tk.LabelFrame(root, text="Chi tiết trình duyệt ẩn danh vừa tạo:", font=("Arial", 9, "bold"))
+        self.device_info_frame.pack(pady=(10, 0), fill=tk.BOTH, expand=False, padx=20)
         
-        self.device_info_text = tk.Text(device_info_frame, height=5, font=("Courier", 8), bg="#f9f9f9", state=tk.DISABLED, wrap=tk.WORD)
+        self.device_info_text = tk.Text(self.device_info_frame, height=5, font=("Courier", 8), bg="#f9f9f9", state=tk.DISABLED, wrap=tk.WORD)
         self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         self.status_label = tk.Label(root, text="Trạng thái: Sẵn sàng", fg="gray", font=("Arial", 9))
@@ -74,6 +74,8 @@ class AntiDetectGUI:
 
         self._is_wiping = False
         self.current_profile = None
+        self.profiles_queue = []
+        self.profiles_used = 0
         
         # Vô hiệu hóa nút trong lúc chờ khởi tạo cấu hình ban đầu
         self.btn_ip_that.config(state=tk.DISABLED)
@@ -103,13 +105,12 @@ class AntiDetectGUI:
         step_label.pack(pady=5)
         
         steps = [
-            "Khởi tạo hệ điều hành ảo (Mobile/OS)...",
-            "Tạo thông số màn hình (Viewport)...",
-            "Cấu hình User-Agent độc nhất...",
-            "Thiết lập Ngôn ngữ & Múi giờ...",
-            "Giả mạo phần cứng (CPU, RAM)...",
-            "Tạo thuật toán trộn Canvas & WebGL...",
-            "Hoàn tất cấu hình thiết bị!"
+            "Đang sinh dữ liệu thiết bị 1/5...",
+            "Đang sinh dữ liệu thiết bị 2/5...",
+            "Đang sinh dữ liệu thiết bị 3/5...",
+            "Đang sinh dữ liệu thiết bị 4/5...",
+            "Đang sinh dữ liệu thiết bị 5/5...",
+            "Hoàn tất nạp 5 cấu hình thiết bị sạch!"
         ]
         
         def do_step(index):
@@ -118,29 +119,48 @@ class AntiDetectGUI:
                 step_label.config(text=steps[index])
                 self.root.after(random.randint(150, 400), do_step, index + 1)
             else:
-                # Tạo profile thực tế để chuẩn bị
-                self.current_profile = self.engine.device_faker.generate_new_device()
-                self.update_device_info_display(self.current_profile)
-                self.btn_ip_that.config(state=tk.NORMAL)
-                self.btn_proxy.config(state=tk.NORMAL)
-                self.status_label.config(text="Trạng thái: Sẵn sàng (Đã tạo xong thiết bị)", fg="green")
+                # Tạo sẵn 5 profile ảo (thông số) vào hàng đợi. Lúc này temp vẫn sạch.
+                self.profiles_queue = [self.engine.device_faker.generate_new_device() for _ in range(5)]
                 self.root.after(400, prog_win.destroy)
+                self.load_next_profile()
                 
         do_step(0)
 
-    def update_device_info_display(self, profile):
+    def load_next_profile(self):
+        """Lấy profile tiếp theo trong hàng đợi ra để sử dụng."""
+        if self.profiles_queue:
+            self.current_profile = self.profiles_queue.pop(0)
+            self.profiles_used += 1
+            self.device_info_frame.config(text=f"Chi tiết trình duyệt ẩn danh (Đang dùng: {self.profiles_used}/5):")
+            self.update_device_info_display(self.current_profile)
+            self.btn_ip_that.config(state=tk.NORMAL)
+            self.btn_proxy.config(state=tk.NORMAL)
+            self.btn_delete.config(state=tk.DISABLED)
+            self.status_label.config(text=f"Trạng thái: Sẵn sàng (Thiết bị {self.profiles_used}/5)", fg="green")
+        else:
+            self.current_profile = None
+            self.device_info_frame.config(text="Chi tiết trình duyệt ẩn danh (Hết lượt):")
+            self.update_device_info_display(None, exhausted=True)
+            self.btn_ip_that.config(state=tk.DISABLED)
+            self.btn_proxy.config(state=tk.DISABLED)
+            self.btn_delete.config(state=tk.DISABLED)
+            self.status_label.config(text="Trạng thái: Hết thiết bị. Vui lòng tắt phần mềm và mở lại.", fg="red")
+
+    def update_device_info_display(self, profile, exhausted=False):
         """Cập nhật khung hiển thị thông tin thiết bị đã tạo."""
-        if not profile: return
-        info_str = (
-            f"Hệ điều hành : {profile.get('platform', 'N/A')} (Mobile: {profile.get('is_mobile', False)})\n"
-            f"Độ phân giải : {profile['viewport']['width']}x{profile['viewport']['height']}\n"
-            f"Múi giờ      : {profile['timezone_id']} | Ngôn ngữ: {profile['locale']}\n"
-            f"User-Agent   : {profile['user_agent']}\n"
-            f"File chạy    : {profile.get('executable_path', 'Đang chờ khởi chạy...')}"
-        )
         self.device_info_text.config(state=tk.NORMAL)
         self.device_info_text.delete(1.0, tk.END)
-        self.device_info_text.insert(tk.END, info_str)
+        if exhausted:
+            self.device_info_text.insert(tk.END, "Đã sử dụng hết 5 thiết bị sạch.\n\nVui lòng tắt phần mềm và mở lại (chạy lại lệnh python main.py)\nđể khởi tạo một lứa 5 thiết bị hoàn toàn mới.")
+        elif profile:
+            info_str = (
+                f"Hệ điều hành : {profile.get('platform', 'N/A')} (Mobile: {profile.get('is_mobile', False)})\n"
+                f"Độ phân giải : {profile['viewport']['width']}x{profile['viewport']['height']}\n"
+                f"Múi giờ      : {profile['timezone_id']} | Ngôn ngữ: {profile['locale']}\n"
+                f"User-Agent   : {profile['user_agent']}\n"
+                f"File chạy    : {profile.get('executable_path', 'Đang chờ khởi chạy...')}"
+            )
+            self.device_info_text.insert(tk.END, info_str)
         self.device_info_text.config(state=tk.DISABLED)
 
     def on_closing(self):
@@ -235,12 +255,7 @@ class AntiDetectGUI:
             self.btn_delete.config(state=tk.NORMAL)
             self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="blue")
         else:
-            self.btn_ip_that.config(state=tk.NORMAL)
-            self.btn_proxy.config(state=tk.NORMAL)
-            self.btn_delete.config(state=tk.DISABLED)
-            self.status_label.config(text="Trạng thái: Sẵn sàng", fg="gray")
-            if hasattr(self, 'current_profile') and self.current_profile:
-                self.update_device_info_display(self.current_profile)
+            pass # Không tự động mở lại nút chạy, bắt buộc phải qua bước Xóa Session để dọn dẹp chuyển qua profile mới
 
     def run_browser_thread(self, target_url, use_proxy):
         """Chạy việc mở trình duyệt trong một thread riêng để không làm treo giao diện."""
@@ -269,9 +284,12 @@ class AntiDetectGUI:
         finally:
             def on_browser_thread_exit():
                 self.set_ui_for_browser_state(False)
-                # Nếu trình duyệt bị đóng thủ công (không bấm nút xóa), tạo cấu hình mới sẵn sàng luôn
+                # Bắt buộc người dùng phải bấm Xóa Session khi trình duyệt tắt để dọn temp & chuyển sang thiết bị tiếp theo
                 if hasattr(self, '_is_wiping') and not self._is_wiping:
-                    self.show_initialization()
+                    self.btn_ip_that.config(state=tk.DISABLED)
+                    self.btn_proxy.config(state=tk.DISABLED)
+                    self.btn_delete.config(state=tk.NORMAL)
+                    self.status_label.config(text="Trạng thái: Trình duyệt đã đóng. Vui lòng bấm 'Xóa Session' để dọn dẹp.", fg="red")
             self.root.after(0, on_browser_thread_exit)
 
     def launch_ip_that(self):
@@ -342,8 +360,7 @@ class AntiDetectGUI:
                     def finish_wipe():
                         self._is_wiping = False
                         prog_win.destroy()
-                        # Tạo thiết bị mới cho lần khởi chạy tiếp theo
-                        self.show_initialization()
+                        self.load_next_profile()
                         
                     self.root.after(800, finish_wipe)
                 wipe_browser_folder()

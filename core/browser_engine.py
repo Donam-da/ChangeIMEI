@@ -116,6 +116,9 @@ class BrowserEngine:
                         args=[
                             "--disable-blink-features=AutomationControlled",
                             "--disable-webrtc-hw-encoding",
+                            "--disable-infobars",
+                            "--no-sandbox",
+                            "--disable-setuid-sandbox",
                             f"--window-size={v_width},{v_height}",
                             "--incognito"
                         ]
@@ -130,6 +133,9 @@ class BrowserEngine:
                             "--disable-webrtc-hw-encoding",
                             "--disable-features=IsolateOrigins,site-per-process",
                             "--disable-site-isolation-trials",
+                            "--disable-infobars",
+                            "--no-sandbox",
+                            "--disable-setuid-sandbox",
                             f"--window-size={v_width},{v_height}",
                             "--incognito"
                         ]
@@ -162,23 +168,36 @@ class BrowserEngine:
                     f"Object.defineProperty(navigator, 'hardwareConcurrency', {{get: () => {device_profile['hardware_concurrency']}}});\n"
                     f"Object.defineProperty(navigator, 'deviceMemory', {{get: () => {device_profile['device_memory']}}});\n"
                     f"Object.defineProperty(navigator, 'languages', {{get: () => ['{device_profile['locale']}', 'en-US', 'en']}});\n"
-                    f"// Ghi đè webdriver an toàn hơn dựa trên nguyên mẫu (prototype) để tránh bị phát hiện\n"
-                    f"if (navigator.webdriver !== undefined) {{\n"
-                    f"    Object.defineProperty(Object.getPrototypeOf(navigator), 'webdriver', {{ get: () => false }});\n"
-                    f"}}"
-                    f"}}\n"
+                    f"// --- CHỐNG NHẬN DIỆN BOT NÂNG CAO ---\n"
+                    f"// 1. Xóa hoàn toàn dấu vết Webdriver\n"
+                    f"Object.defineProperty(Object.getPrototypeOf(navigator), 'webdriver', {{ get: () => undefined, set: () => {{}} }});\n"
+                    f"// 2. Xóa các biến toàn cục do Playwright tạo ra\n"
+                    f"delete window.__playwright;\n"
+                    f"delete window.__pw_manual;\n"
+                    f"delete window.__PW_outOfContext;\n"
+                    f"// 3. Giả mạo đối tượng Chrome (Rất nhiều hệ thống Anti-Bot check thuộc tính này)\n"
+                    f"if (!window.chrome) window.chrome = {{}};\n"
+                    f"window.chrome.app = {{ isInstalled: false, InstallState: {{ DISABLED: 'disabled', INSTALLED: 'installed', NOT_INSTALLED: 'not_installed' }}, RunningState: {{ CANNOT_RUN: 'cannot_run', READY_TO_RUN: 'ready_to_run', RUNNING: 'running' }} }};\n"
+                    f"window.chrome.runtime = {{ OnInstalledReason: {{ CHROME_UPDATE: 'chrome_update', INSTALL: 'install', SHARED_MODULE_UPDATE: 'shared_module_update', UPDATE: 'update' }}, OnRestartRequiredReason: {{ APP_UPDATE: 'app_update', OS_UPDATE: 'os_update', PERIODIC: 'periodic' }} }};\n"
+                    f"window.chrome.csi = function() {{ return {{ onloadT: Date.now(), startE: Date.now(), pageT: Date.now(), tran: 15 }}; }};\n"
+                    f"// 4. Giả mạo số lượng Plugins (Bot thường có 0 plugin)\n"
+                    f"Object.defineProperty(navigator, 'plugins', {{ get: () => [1, 2, 3, 4, 5] }});\n"
+                    f"Object.defineProperty(navigator, 'mimeTypes', {{ get: () => [1, 2, 3, 4] }});\n"
+                    f"// 5. Fake trạng thái Permission (Tránh trả về lỗi bị từ chối mặc định của trình duyệt tự động)\n"
+                    f"const originalQuery = window.navigator.permissions.query;\n"
+                    f"window.navigator.permissions.query = (parameters) => (parameters.name === 'notifications' ? Promise.resolve({{ state: Notification.permission }}) : originalQuery(parameters));\n"
                     f"// --- Chống nhận diện: Đổi mã băm Canvas Fingerprint thành Độc Nhất ---\n"
                     f"const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;\n"
                     f"HTMLCanvasElement.prototype.toDataURL = function() {{\n"
-                    f"    const ctx = this.getContext('2d');\n"
-                    f"    if (ctx) {{ ctx.fillStyle = 'rgba({random.randint(0, 255)}, {random.randint(0, 255)}, {random.randint(0, 255)}, 0.01)'; ctx.fillRect(0, 0, 1, 1); }}\n"
+                    f"    const ctx = this.getContext('2d', {{willReadFrequently: true}});\n"
+                    f"    if (ctx) {{ ctx.fillStyle = 'rgba({device_profile['canvas_noise_r']}, {device_profile['canvas_noise_g']}, {device_profile['canvas_noise_b']}, 0.01)'; ctx.fillRect(0, 0, 1, 1); }}\n"
                     f"    return originalToDataURL.apply(this, arguments);\n"
                     f"}};\n"
                     f"// --- Chống nhận diện: Trộn thông số WebGL Fingerprint ---\n"
                     f"const getParameterProxy = new Proxy(WebGLRenderingContext.prototype.getParameter, {{\n"
                     f"    apply: function(target, thisArg, args) {{\n"
-                    f"        if (args[0] === 37445) return '{random.choice(['Intel Inc.', 'Apple Inc.', 'NVIDIA Corporation', 'AMD', 'Qualcomm'])}';\n"
-                    f"        if (args[0] === 37446) return '{random.choice(['Intel Iris OpenGL Engine', 'Apple GPU', 'Adreno (TM) 640', 'Mali-G77 MC9', 'Adreno (TM) 730'])}';\n"
+                    f"        if (args[0] === 37445) return '{device_profile['webgl_vendor']}';\n"
+                    f"        if (args[0] === 37446) return '{device_profile['webgl_renderer']}';\n"
                     f"        return Reflect.apply(target, thisArg, args);\n"
                     f"    }}\n"
                     f"}});\n"
@@ -186,102 +205,120 @@ class BrowserEngine:
                 )
 
                 page = self.context.new_page()
-                apply_stealth(page)
                 
-                # --- ÉP BUỘC TẤT CẢ CHẠY TRÊN 1 TAB DUY NHẤT & CHẶN TỰ ĐỘNG CHUYỂN TRANG ---
+                # ĐÃ TẮT apply_stealth(page): Tránh xung đột với khối add_init_script bên trên. Việc ghi đè thông số 2 lần sẽ khiến Google phát hiện ra Bot.
+                
+                # --- LỚP BẢO VỆ 1: CHẶN POPUP MỚI TẠI CẤP ĐỘ LÕI TRÌNH DUYỆT (PLAYWRIGHT) ---
+                def block_new_tabs(new_page):
+                    # Nếu trang mới mở ra không phải là tab gốc đang làm nhiệm vụ -> lập tức đóng lại
+                    if new_page != page:
+                        try:
+                            new_page.close()
+                            print("[Anti-Detect] Đã tự động đóng một Popup/Tab quảng cáo cố tình mở ra.")
+                        except Exception:
+                            pass
+                self.context.on("page", block_new_tabs)
+
+                # --- ÉP BUỘC TẤT CẢ CHẠY TRÊN 1 TAB DUY NHẤT ---
                 page.add_init_script("""
-                    // 1. Chặn mở Popup/Tab mới khi chưa có thao tác chủ động (như click chuột)
+                    // 1. Ghi đè window.open để mở đè lên tab hiện tại
                     window.open = function(url) {
-                        if (!navigator.userActivation.hasBeenActive && !navigator.userActivation.isActive) {
-                            console.log('[Anti-Detect] Đã chặn trang web tự động mở quảng cáo/popup:', url);
-                            return null;
-                        }
-                        // Đổi thành mở đè lên cùng 1 tab
                         window.location.href = url;
                         return window;
                     };
                     
-                    // 2. Chặn các hàm tự động chuyển trang của Javascript khi chưa tương tác
-                    const blockAutoRedirect = (originalFn) => function(url) {
-                        if (!navigator.userActivation.hasBeenActive) {
-                            console.log('[Anti-Detect] Đã chặn trang web tự động chuyển hướng.');
-                            return;
-                        }
-                        originalFn.call(window.location, url);
-                    };
-                    window.location.assign = blockAutoRedirect(window.location.assign);
-                    window.location.replace = blockAutoRedirect(window.location.replace);
+                    // 2. Dùng MutationObserver để xóa target="_blank" NGAY LẬP TỨC khi thẻ <a> vừa được web sinh ra
+                    const observer = new MutationObserver((mutations) => {
+                        mutations.forEach((mutation) => {
+                            mutation.addedNodes.forEach((node) => {
+                                if (node.nodeType === 1) { // ELEMENT_NODE
+                                    if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
+                                        node.removeAttribute('target');
+                                    }
+                                    if (node.querySelectorAll) {
+                                        node.querySelectorAll('a[target="_blank"]').forEach(a => a.removeAttribute('target'));
+                                    }
+                                }
+                            });
+                        });
+                    });
 
-                    setInterval(() => {
-                        // 3. Xóa thuộc tính target="_blank" để ép các link click vào mở trên cùng 1 tab
+                    document.addEventListener('DOMContentLoaded', () => {
                         document.querySelectorAll('a[target="_blank"]').forEach(a => a.removeAttribute('target'));
-                        
-                        // 4. Xóa thẻ Meta Refresh gây tự động chuyển trang ngay khi load web
-                        if (!navigator.userActivation.hasBeenActive) {
-                            document.querySelectorAll('meta[http-equiv="refresh"]').forEach(meta => meta.remove());
-                        }
-                    }, 500);
+                        observer.observe(document, { childList: true, subtree: true });
+                    });
                 """)
                 # ---------------------------------------------
 
                 try:
-                    print(f"[*] Đang mở trang web: {target_url}")
-                    # Thiết lập Timeout 45 giây để kiểm tra Proxy chậm/bất ổn
-                    page.goto(target_url, timeout=45000)
+                    # --- BƯỚC WARM-UP: TRÁNH BỊ NHẬN DIỆN LÀ BOT MỞ TAB SIÊU TỐC ---
+                    # 1. Khởi động ở trang trắng (cho trình duyệt vài giây để áp dụng toàn bộ thông số ẩn danh)
+                    print("[*] Đang làm ấm trình duyệt...")
+                    page.goto("about:blank")
+                    page.wait_for_timeout(random.randint(1500, 3000))
                     
-                    # Tự động mô phỏng hành vi người dùng (Di chuột & Cuộn trang ngẫu nhiên) 
-                    # ngay sau khi load trang để tăng Trust Score, đánh lừa hệ thống phát hiện Bot.
+                    # 2. Truy cập Google theo kịch bản tùy chỉnh thay vì truy cập thẳng link đích
+                    print("[*] Truy cập Google...")
+                    # Sử dụng domcontentloaded thay vì chờ load xong tất cả ảnh/mạng để giảm tỷ lệ bị Google nghi ngờ
+                    page.goto("https://www.google.com/", wait_until="domcontentloaded", timeout=45000)
+                    page.wait_for_load_state("domcontentloaded")
+                    page.wait_for_timeout(random.randint(1000, 2500))
+                    
                     try:
                         print("[*] Đang mô phỏng hành vi con người (Mouse & Scroll)...")
-                        # Di chuyển chuột ngẫu nhiên 3-5 lần (steps tạo độ mượt cho trỏ chuột)
                         for _ in range(random.randint(3, 5)):
                             x = random.randint(100, v_width - 100)
                             y = random.randint(100, v_height - 100)
                             page.mouse.move(x, y, steps=random.randint(5, 15))
                             page.wait_for_timeout(random.randint(100, 500))
-                            
-                        # Cuộn trang xuống ngẫu nhiên 1-3 lần
-                        for _ in range(random.randint(1, 3)):
-                            page.mouse.wheel(0, random.randint(100, 600))
-                            page.wait_for_timeout(random.randint(300, 1000))
-                            
-                        # Cuộn ngược lên một chút để tạo sự tự nhiên
-                        page.mouse.wheel(0, -random.randint(50, 200))
-                        page.wait_for_timeout(random.randint(300, 800))
                     except Exception:
-                        pass # Bỏ qua nếu có lỗi trong quá trình mô phỏng (ví dụ trang bị đóng đột ngột)
-
-                    # =====================================================================
-                    # VÍ DỤ: QUY TRÌNH TỰ ĐỘNG HOÀN TOÀN TRÊN 1 TAB DUY NHẤT
-                    # Bạn gỡ comment (bỏ cặp dấu ''') ở dưới để chạy thử luồng này.
-                    # Bạn cần thay thế bộ chọn (selector) sao cho đúng với trang web thực tế.
-                    # =====================================================================
+                        pass
+                        
                     try:
-                        print("[*] Đang bắt đầu quy trình làm nhiệm vụ tự động...")
+                        print("[*] Đang bắt đầu quy trình tự động tìm kiếm...")
                         
-                        # 1. Đợi trang nhiệm vụ load xong và click vào nút "Mở Google" hoặc link
-                        # QUAN TRỌNG: Dùng click() thay vì goto() để trình duyệt giữ lại lịch sử chuyển trang (Referer).
-                        # Điều này giúp hệ thống tracking của web nhiệm vụ xác nhận bạn đi đúng quy trình.
+                        search_selector = "textarea[name='q'], input[name='q']"
+                        page.wait_for_selector(search_selector, state="visible", timeout=15000)
                         
-                        # LƯU Ý: Sửa lại selector ('text=Mở Google') cho đúng với nút trên web thực tế
-                        # page.click("text='Mở Google'") 
-                        # page.wait_for_load_state("domcontentloaded")
+                        # Click vào ô tìm kiếm để mô phỏng người thật
+                        page.click(search_selector)
+                        page.wait_for_timeout(random.randint(500, 1500))
                         
-                        # 2. Tìm kiếm từ khóa trên Google
-                        # Điền từ khóa nhiệm vụ vào ô tìm kiếm của Google
-                        # page.wait_for_selector("textarea[name='q'], input[name='q']", state="visible")
-                        # page.fill("textarea[name='q'], input[name='q']", "từ khóa nhiệm vụ")
-                        # page.wait_for_timeout(random.randint(500, 1500)) # Dừng 1 chút như người thật
-                        # page.press("textarea[name='q'], input[name='q']", "Enter")
+                        # Sử dụng hàm type thay vì fill để gõ từng chữ cái với khoảng trễ delay (như người gõ phím)
+                        print("[*] Đang gõ từ khóa: moneytask.top")
+                        page.type(search_selector, "moneytask.top", delay=random.randint(150, 400))
                         
-                        # page.wait_for_selector("#search") # Chờ phần tử chứa kết quả xuất hiện
+                        page.wait_for_timeout(random.randint(800, 1500))
                         
-                        # 3. Click vào trang web đích trong trang kết quả tìm kiếm Google
-                        # Nhờ đoạn script JS bên trên, khi click vào đây nó sẽ MỞ TRỰC TIẾP TRÊN TAB NÀY thay vì mở tab mới.
-                        # page.click("a[href*='ten-mien-muc-tieu.com']")
-                        # page.wait_for_load_state("domcontentloaded")
+                        print("[*] Đang nhấn Enter...")
+                        page.press(search_selector, "Enter")
                         
-                        print("[*] Đã tự động hoá thành công nhiệm vụ!")
+                        page.wait_for_load_state("domcontentloaded")
+                        print("[*] Đã tự động hoá thành công quy trình tìm kiếm!")
+                        
+                        # --- BỔ SUNG: XỬ LÝ GOOGLE RECAPTCHA (NẾU CÓ) ---
+                        try:
+                            # Chờ xem iframe checkbox của reCAPTCHA có xuất hiện trong vòng 4 giây không
+                            page.wait_for_selector("iframe[src*='recaptcha/api2/anchor']", timeout=4000)
+                            print("[!] Phát hiện Google reCAPTCHA chặn. Đang thử click tự động...")
+                            page.wait_for_timeout(random.randint(1000, 2500))
+                            
+                            # Sử dụng frame_locator để chọn đúng iframe chứa ô Checkbox
+                            recaptcha_frame = page.frame_locator("iframe[src*='recaptcha/api2/anchor']")
+                            checkbox = recaptcha_frame.locator(".recaptcha-checkbox-border")
+                            
+                            if checkbox.count() > 0:
+                                checkbox.click()
+                                print("[*] Đã tự động click vào ô 'Tôi không phải là người máy'.")
+                                page.wait_for_timeout(random.randint(3000, 5000))
+                                
+                                # Kiểm tra xem bảng chọn hình ảnh (bframe) có hiển thị không
+                                challenge_iframe = page.locator("iframe[src*='recaptcha/api2/bframe']")
+                                if challenge_iframe.count() > 0 and challenge_iframe.is_visible():
+                                    print("[!!!] CẢNH BÁO: Google yêu cầu giải CAPTCHA hình ảnh.")
+                                    print("[!!!] Bạn vui lòng chọn hình thủ công (việc tự động giải hình ảnh cần tích hợp API như 2Captcha/Anti-captcha).")
+                        except Exception:
+                            print("[*] Trạng thái: An toàn (Không bị Google hỏi reCAPTCHA).")
                     except Exception as ex:
                         print(f"[!] Lỗi trong quá trình tự động hóa tác vụ: {ex}")
                         
