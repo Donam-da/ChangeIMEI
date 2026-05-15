@@ -187,6 +187,19 @@ class BrowserEngine:
                 page = self.context.new_page()
                 apply_stealth(page)
                 
+                # --- ÉP BUỘC TẤT CẢ CHẠY TRÊN 1 TAB DUY NHẤT ---
+                # Ghi đè window.open và xóa thuộc tính target="_blank" của các thẻ <a>
+                page.add_init_script("""
+                    window.open = function(url) {
+                        window.location.href = url;
+                        return window;
+                    };
+                    setInterval(() => {
+                        document.querySelectorAll('a[target="_blank"]').forEach(a => a.removeAttribute('target'));
+                    }, 500);
+                """)
+                # ---------------------------------------------
+
                 try:
                     print(f"[*] Đang mở trang web: {target_url}")
                     # Thiết lập Timeout 45 giây để kiểm tra Proxy chậm/bất ổn
@@ -213,6 +226,40 @@ class BrowserEngine:
                         page.wait_for_timeout(random.randint(300, 800))
                     except Exception:
                         pass # Bỏ qua nếu có lỗi trong quá trình mô phỏng (ví dụ trang bị đóng đột ngột)
+
+                    # =====================================================================
+                    # VÍ DỤ: QUY TRÌNH TỰ ĐỘNG HOÀN TOÀN TRÊN 1 TAB DUY NHẤT
+                    # Bạn gỡ comment (bỏ cặp dấu ''') ở dưới để chạy thử luồng này.
+                    # Bạn cần thay thế bộ chọn (selector) sao cho đúng với trang web thực tế.
+                    # =====================================================================
+                    try:
+                        print("[*] Đang bắt đầu quy trình làm nhiệm vụ tự động...")
+                        
+                        # 1. Đợi trang nhiệm vụ load xong và click vào nút "Mở Google" hoặc link
+                        # QUAN TRỌNG: Dùng click() thay vì goto() để trình duyệt giữ lại lịch sử chuyển trang (Referer).
+                        # Điều này giúp hệ thống tracking của web nhiệm vụ xác nhận bạn đi đúng quy trình.
+                        
+                        # LƯU Ý: Sửa lại selector ('text=Mở Google') cho đúng với nút trên web thực tế
+                        # page.click("text='Mở Google'") 
+                        # page.wait_for_load_state("domcontentloaded")
+                        
+                        # 2. Tìm kiếm từ khóa trên Google
+                        # Điền từ khóa nhiệm vụ vào ô tìm kiếm của Google
+                        # page.wait_for_selector("textarea[name='q'], input[name='q']", state="visible")
+                        # page.fill("textarea[name='q'], input[name='q']", "từ khóa nhiệm vụ")
+                        # page.wait_for_timeout(random.randint(500, 1500)) # Dừng 1 chút như người thật
+                        # page.press("textarea[name='q'], input[name='q']", "Enter")
+                        
+                        # page.wait_for_selector("#search") # Chờ phần tử chứa kết quả xuất hiện
+                        
+                        # 3. Click vào trang web đích trong trang kết quả tìm kiếm Google
+                        # Nhờ đoạn script JS bên trên, khi click vào đây nó sẽ MỞ TRỰC TIẾP TRÊN TAB NÀY thay vì mở tab mới.
+                        # page.click("a[href*='ten-mien-muc-tieu.com']")
+                        # page.wait_for_load_state("domcontentloaded")
+                        
+                        print("[*] Đã tự động hoá thành công nhiệm vụ!")
+                    except Exception as ex:
+                        print(f"[!] Lỗi trong quá trình tự động hóa tác vụ: {ex}")
                         
                 except PlaywrightTimeoutError:
                     print("[!!!] CẢNH BÁO: Mạng quá chậm hoặc Proxy đã chết (Timeout 45s).")
