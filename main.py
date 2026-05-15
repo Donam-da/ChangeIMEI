@@ -7,6 +7,7 @@ import shutil
 import tempfile
 from tkinter import messagebox
 from tkinter import ttk
+import urllib.request
 from core.browser_engine import BrowserEngine
 
 class AntiDetectGUI:
@@ -21,11 +22,21 @@ class AntiDetectGUI:
         # Thiết kế các thành phần Giao diện (UI)
         tk.Label(root, text="CÔNG CỤ ANTI-DETECT: CHANGE IMEI", font=("Arial", 14, "bold"), fg="#00ffff", bg="#121212").pack(pady=15)
         
+        self.ip_label = tk.Label(root, text="🌐 IP Hiện Tại: Đang kiểm tra...", font=("Arial", 11, "bold"), fg="#ffb74d", bg="#121212")
+        self.ip_label.pack(pady=(0, 10))
+
         tk.Label(root, text="Nhập link URL muốn mở:", font=("Arial", 10), fg="#e0e0e0", bg="#121212").pack()
-        self.url_entry = tk.Entry(root, width=60, font=("Arial", 10), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT)
-        self.url_entry.pack(pady=5, ipady=3)
+        
+        url_frame = tk.Frame(root, bg="#121212")
+        url_frame.pack(pady=5)
+        
+        self.url_entry = tk.Entry(url_frame, width=55, font=("Arial", 10), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT)
+        self.url_entry.pack(side=tk.LEFT, ipady=3)
         self.url_entry.insert(0, "https://www.google.com/search?q=moneytask.top&sca_esv=3d73e6268d6609d9&sxsrf=ANbL-n5OwmW4jJHMCw_P-MHSjJYYql4e-Q%3A1778737875726&source=hp&ei=02IFas2XKteO2roP_vuQwQE&iflsig=AFdpzrgAAAAAagVw4whkttcjBBee1Pj39b_eAIp1hlot&oq=money&gs_lp=Egdnd3Mtd2l6IgVtb25leSoCCAAyBBAjGCcyChAAGIAEGIoFGEMyCxAAGIAEGLEDGIMBMgsQABiABBixAxiDATINEAAYgAQYigUYQxixAzILEAAYgAQYigUYkgMyFhAuGIAEGIoFGEMYsQMYyQMYxwEY0QMyChAAGIAEGIoFGEMyEBAuGIAEGIoFGEMYsQMYgwEyChAuGIAEGIoFGENImjRQyh5YqCRwAXgAkAEAmAHGB6AB4BaqAQkzLTIuMS4wLjK4AQHIAQD4AQGYAgagArsXqAIKwgIHECMY6gIYJ8ICDBAjGIAEGIoFGBMYJ8ICCxAuGIAEGLEDGIMBwgIIEC4YgAQYsQPCAg4QLhiABBiKBRixAxiDAcICCBAAGIAEGLEDwgIREC4YgAQYsQMYgwEYxwEY0QPCAhAQABiABBiKBRhDGLEDGIMBmAMN8QXuyFYW96YaBJIHCzEuMy0yLjEuMS4xoAepNLIHCTMtMi4xLjEuMbgHrhfCBwUyLTIuNMgHNoAIAQ&sclient=gws-wiz")
         
+        self.btn_toggle_url = tk.Button(url_frame, text="👁️", bg="#1e1e1e", fg="#00ffff", relief=tk.FLAT, font=("Arial", 10), width=3, command=self.toggle_url_visibility, activebackground="#333333", activeforeground="#00ffff")
+        self.btn_toggle_url.pack(side=tk.LEFT, padx=(5, 0), ipady=1)
+
         # Các nút bấm
         btn_frame = tk.Frame(root, bg="#121212")
         btn_frame.pack(pady=10)
@@ -104,6 +115,38 @@ class AntiDetectGUI:
         
         # Mở hộp thoại tiến trình khởi tạo khi vừa mở Tool
         self.root.after(300, self.show_initialization)
+
+        # Khởi động luồng theo dõi IP liên tục
+        self.start_ip_monitor()
+
+    def start_ip_monitor(self):
+        """Chạy luồng ngầm liên tục kiểm tra IP mạng của máy mỗi 2 giây"""
+        def monitor():
+            import time
+            current_ip = ""
+            while True:
+                try:
+                    req = urllib.request.Request("https://api.ipify.org", headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req, timeout=2) as response:
+                        ip = response.read().decode('utf-8').strip()
+                        if ip != current_ip:
+                            current_ip = ip
+                            self.root.after(0, lambda i=ip: self.ip_label.config(text=f"🌐 IP Hiện Tại: {i}", fg="#00e676"))
+                except Exception:
+                    self.root.after(0, lambda: self.ip_label.config(text="🌐 IP Hiện Tại: Mất kết nối mạng...", fg="#ff5252"))
+                    current_ip = ""
+                time.sleep(2)
+                
+        threading.Thread(target=monitor, daemon=True).start()
+
+    def toggle_url_visibility(self):
+        """Hiện/ẩn nội dung ô nhập URL"""
+        if self.url_entry.cget('show') == '':
+            self.url_entry.config(show='*')
+            self.btn_toggle_url.config(text="🙈")
+        else:
+            self.url_entry.config(show='')
+            self.btn_toggle_url.config(text="👁️")
 
     def show_initialization(self):
         """Hiển thị tiến trình khởi tạo thiết bị giả lập mới khi mở tool hoặc sau khi dọn dẹp."""

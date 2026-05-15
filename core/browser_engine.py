@@ -259,22 +259,22 @@ class BrowserEngine:
                     # 1. Khởi động ở trang trắng (cho trình duyệt vài giây để áp dụng toàn bộ thông số ẩn danh)
                     print("[*] Đang làm ấm trình duyệt...")
                     page.goto("about:blank")
-                    page.wait_for_timeout(random.randint(1500, 3000))
+                    page.wait_for_timeout(random.randint(1000, 2000))
                     
                     # 2. Truy cập Google theo kịch bản tùy chỉnh thay vì truy cập thẳng link đích
                     print("[*] Truy cập Google...")
                     # Sử dụng domcontentloaded thay vì chờ load xong tất cả ảnh/mạng để giảm tỷ lệ bị Google nghi ngờ
                     page.goto("https://www.google.com/", wait_until="domcontentloaded", timeout=45000)
                     page.wait_for_load_state("domcontentloaded")
-                    page.wait_for_timeout(random.randint(1000, 2500))
+                    page.wait_for_timeout(random.randint(650, 1650))
                     
                     try:
                         print("[*] Đang mô phỏng hành vi con người (Mouse & Scroll)...")
                         for _ in range(random.randint(3, 5)):
                             x = random.randint(100, v_width - 100)
                             y = random.randint(100, v_height - 100)
-                            page.mouse.move(x, y, steps=random.randint(5, 15))
-                            page.wait_for_timeout(random.randint(100, 500))
+                            page.mouse.move(x, y, steps=random.randint(3, 10))
+                            page.wait_for_timeout(random.randint(65, 330))
                     except Exception:
                         pass
                         
@@ -286,13 +286,13 @@ class BrowserEngine:
                         
                         # Click vào ô tìm kiếm để mô phỏng người thật
                         page.click(search_selector)
-                        page.wait_for_timeout(random.randint(500, 1500))
+                        page.wait_for_timeout(random.randint(330, 1000))
                         
                         # Sử dụng hàm type thay vì fill để gõ từng chữ cái với khoảng trễ delay (như người gõ phím)
                         print("[*] Đang gõ từ khóa: moneytask.top")
-                        page.type(search_selector, "moneytask.top", delay=random.randint(150, 400))
+                        page.type(search_selector, "moneytask.top", delay=random.randint(100, 260))
                         
-                        page.wait_for_timeout(random.randint(800, 1500))
+                        page.wait_for_timeout(random.randint(530, 1000))
                         
                         print("[*] Đang nhấn Enter...")
                         page.press(search_selector, "Enter")
@@ -305,7 +305,7 @@ class BrowserEngine:
                             # Chờ xem iframe checkbox của reCAPTCHA có xuất hiện trong vòng 4 giây không
                             page.wait_for_selector("iframe[src*='recaptcha/api2/anchor']", timeout=4000)
                             print("[!] Phát hiện Google reCAPTCHA chặn. Đang thử click tự động...")
-                            page.wait_for_timeout(random.randint(1000, 2500))
+                            page.wait_for_timeout(random.randint(650, 1650))
                             
                             # Sử dụng frame_locator để chọn đúng iframe chứa ô Checkbox
                             recaptcha_frame = page.frame_locator("iframe[src*='recaptcha/api2/anchor']")
@@ -314,7 +314,7 @@ class BrowserEngine:
                             if checkbox.count() > 0:
                                 checkbox.click()
                                 print("[*] Đã tự động click vào ô 'Tôi không phải là người máy'.")
-                                page.wait_for_timeout(random.randint(3000, 5000))
+                                page.wait_for_timeout(random.randint(2000, 3300))
                                 
                                 # Kiểm tra xem bảng chọn hình ảnh (bframe) có hiển thị không
                                 challenge_iframe = page.locator("iframe[src*='recaptcha/api2/bframe']")
