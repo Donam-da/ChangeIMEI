@@ -72,6 +72,77 @@ class AntiDetectGUI:
         # Đảm bảo dọn dẹp session khi người dùng đóng cửa sổ chính
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
+        self._is_wiping = False
+        self.current_profile = None
+        
+        # Vô hiệu hóa nút trong lúc chờ khởi tạo cấu hình ban đầu
+        self.btn_ip_that.config(state=tk.DISABLED)
+        self.btn_proxy.config(state=tk.DISABLED)
+        
+        # Mở hộp thoại tiến trình khởi tạo khi vừa mở Tool
+        self.root.after(300, self.show_initialization)
+
+    def show_initialization(self):
+        """Hiển thị tiến trình khởi tạo thiết bị giả lập mới khi mở tool hoặc sau khi dọn dẹp."""
+        self.btn_ip_that.config(state=tk.DISABLED)
+        self.btn_proxy.config(state=tk.DISABLED)
+        
+        prog_win = tk.Toplevel(self.root)
+        prog_win.title("Đang nạp môi trường...")
+        prog_win.geometry("420x150")
+        prog_win.transient(self.root)
+        prog_win.grab_set()
+        prog_win.protocol("WM_DELETE_WINDOW", lambda: None)
+        
+        tk.Label(prog_win, text="Đang khởi tạo cấu hình ẩn danh hoàn toàn mới...", font=("Arial", 10, "bold"), fg="#333").pack(pady=10)
+        
+        progress = ttk.Progressbar(prog_win, orient=tk.HORIZONTAL, length=380, mode='determinate')
+        progress.pack(pady=5)
+        
+        step_label = tk.Label(prog_win, text="Bắt đầu...", font=("Courier", 9), fg="blue")
+        step_label.pack(pady=5)
+        
+        steps = [
+            "Khởi tạo hệ điều hành ảo (Mobile/OS)...",
+            "Tạo thông số màn hình (Viewport)...",
+            "Cấu hình User-Agent độc nhất...",
+            "Thiết lập Ngôn ngữ & Múi giờ...",
+            "Giả mạo phần cứng (CPU, RAM)...",
+            "Tạo thuật toán trộn Canvas & WebGL...",
+            "Hoàn tất cấu hình thiết bị!"
+        ]
+        
+        def do_step(index):
+            if index < len(steps):
+                progress['value'] = (index / (len(steps) - 1)) * 100
+                step_label.config(text=steps[index])
+                self.root.after(random.randint(150, 400), do_step, index + 1)
+            else:
+                # Tạo profile thực tế để chuẩn bị
+                self.current_profile = self.engine.device_faker.generate_new_device()
+                self.update_device_info_display(self.current_profile)
+                self.btn_ip_that.config(state=tk.NORMAL)
+                self.btn_proxy.config(state=tk.NORMAL)
+                self.status_label.config(text="Trạng thái: Sẵn sàng (Đã tạo xong thiết bị)", fg="green")
+                self.root.after(400, prog_win.destroy)
+                
+        do_step(0)
+
+    def update_device_info_display(self, profile):
+        """Cập nhật khung hiển thị thông tin thiết bị đã tạo."""
+        if not profile: return
+        info_str = (
+            f"Hệ điều hành : {profile.get('platform', 'N/A')} (Mobile: {profile.get('is_mobile', False)})\n"
+            f"Độ phân giải : {profile['viewport']['width']}x{profile['viewport']['height']}\n"
+            f"Múi giờ      : {profile['timezone_id']} | Ngôn ngữ: {profile['locale']}\n"
+            f"User-Agent   : {profile['user_agent']}\n"
+            f"File chạy    : {profile.get('executable_path', 'Đang chờ khởi chạy...')}"
+        )
+        self.device_info_text.config(state=tk.NORMAL)
+        self.device_info_text.delete(1.0, tk.END)
+        self.device_info_text.insert(tk.END, info_str)
+        self.device_info_text.config(state=tk.DISABLED)
+
     def on_closing(self):
         """Xử lý sự kiện đóng cửa sổ chính của ứng dụng."""
         if self.engine.playwright is not None:
@@ -168,9 +239,8 @@ class AntiDetectGUI:
             self.btn_proxy.config(state=tk.NORMAL)
             self.btn_delete.config(state=tk.DISABLED)
             self.status_label.config(text="Trạng thái: Sẵn sàng", fg="gray")
-            self.device_info_text.config(state=tk.NORMAL)
-            self.device_info_text.delete(1.0, tk.END)
-            self.device_info_text.config(state=tk.DISABLED)
+            if hasattr(self, 'current_profile') and self.current_profile:
+                self.update_device_info_display(self.current_profile)
 
     def run_browser_thread(self, target_url, use_proxy):
         """Chạy việc mở trình duyệt trong một thread riêng để không làm treo giao diện."""
@@ -181,34 +251,28 @@ class AntiDetectGUI:
         try:
             # Callback này sẽ được gọi từ worker thread khi trình duyệt đã mở thành công
             def on_launch_success(device_profile):
-                info_str = (
-                    f"Hệ điều hành : {device_profile.get('platform', 'N/A')} (Mobile: {device_profile.get('is_mobile', False)})\n"
-                    f"Độ phân giải : {device_profile['viewport']['width']}x{device_profile['viewport']['height']}\n"
-                    f"Múi giờ      : {device_profile['timezone_id']} | Ngôn ngữ: {device_profile['locale']}\n"
-                    f"User-Agent   : {device_profile['user_agent']}\n"
-                    f"File chạy    : {device_profile.get('executable_path', 'N/A')}"
-                )
                 def update_ui():
                     self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="blue")
-                    self.device_info_text.config(state=tk.NORMAL)
-                    self.device_info_text.delete(1.0, tk.END)
-                    self.device_info_text.insert(tk.END, info_str)
-                    self.device_info_text.config(state=tk.DISABLED)
+                    self.update_device_info_display(device_profile)
                 self.root.after(0, update_ui)
 
             # Lệnh này sẽ block cho đến khi trình duyệt được đóng và dọn dẹp xong
             self.engine.run_session_and_wait(
                 target_url=target_url, 
                 use_proxy=use_proxy,
-                on_launch_callback=on_launch_success
+                on_launch_callback=on_launch_success,
+                device_profile=self.current_profile
             )
         except Exception as e:
             print(f"Lỗi: {e}")
             messagebox.showerror("Lỗi Mở Trình Duyệt", f"Không thể mở trình duyệt.\n\nChi tiết lỗi:\n{e}")
         finally:
-            # Nếu có lỗi, trả lại trạng thái ban đầu
-            # Hoặc khi run_session_and_wait kết thúc, cũng trả lại trạng thái ban đầu
-            self.root.after(0, lambda: self.set_ui_for_browser_state(False))
+            def on_browser_thread_exit():
+                self.set_ui_for_browser_state(False)
+                # Nếu trình duyệt bị đóng thủ công (không bấm nút xóa), tạo cấu hình mới sẵn sàng luôn
+                if hasattr(self, '_is_wiping') and not self._is_wiping:
+                    self.show_initialization()
+            self.root.after(0, on_browser_thread_exit)
 
     def launch_ip_that(self):
         url = self.url_entry.get().strip()
@@ -222,6 +286,7 @@ class AntiDetectGUI:
         """Thực hiện dọn dẹp session với thanh tiến trình trực quan."""
         self.btn_delete.config(state=tk.DISABLED) # Tránh click đúp
         self.status_label.config(text="Trạng thái: Đang tiêu hủy dữ liệu...", fg="orange")
+        self._is_wiping = True
         
         # Tạo cửa sổ hiển thị tiến trình
         prog_win = tk.Toplevel(self.root)
@@ -274,7 +339,13 @@ class AntiDetectGUI:
                                 shutil.rmtree(os.path.join(temp_dir, item), ignore_errors=True)
                     except Exception: pass
                     
-                    self.root.after(800, prog_win.destroy)
+                    def finish_wipe():
+                        self._is_wiping = False
+                        prog_win.destroy()
+                        # Tạo thiết bị mới cho lần khởi chạy tiếp theo
+                        self.show_initialization()
+                        
+                    self.root.after(800, finish_wipe)
                 wipe_browser_folder()
 
         update_progress(0)

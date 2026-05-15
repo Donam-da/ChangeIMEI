@@ -36,7 +36,7 @@ class BrowserEngine:
         with open(proxy_path, 'r') as f:
             return [line.strip() for line in f if line.strip()]
 
-    def run_session_and_wait(self, target_url, use_proxy, on_launch_callback):
+    def run_session_and_wait(self, target_url, use_proxy, on_launch_callback, device_profile=None):
         """
         Khởi chạy session, gọi callback, và block cho đến khi trình duyệt bị đóng.
         Việc dọn dẹp được thực hiện tự động khi thoát khỏi khối 'with'.
@@ -52,7 +52,8 @@ class BrowserEngine:
         if target_url and not target_url.startswith("http"):
             target_url = "https://" + target_url
 
-        device_profile = self.device_faker.generate_new_device()
+        if device_profile is None:
+            device_profile = self.device_faker.generate_new_device()
         v_width = device_profile['viewport']['width']
         v_height = device_profile['viewport']['height']
         print(f"[*] ChangeIMEI Thành công. Đang giả lập thiết bị: \n    {device_profile['user_agent'][:60]}...")
@@ -187,15 +188,38 @@ class BrowserEngine:
                 page = self.context.new_page()
                 apply_stealth(page)
                 
-                # --- ÉP BUỘC TẤT CẢ CHẠY TRÊN 1 TAB DUY NHẤT ---
-                # Ghi đè window.open và xóa thuộc tính target="_blank" của các thẻ <a>
+                # --- ÉP BUỘC TẤT CẢ CHẠY TRÊN 1 TAB DUY NHẤT & CHẶN TỰ ĐỘNG CHUYỂN TRANG ---
                 page.add_init_script("""
+                    // 1. Chặn mở Popup/Tab mới khi chưa có thao tác chủ động (như click chuột)
                     window.open = function(url) {
+                        if (!navigator.userActivation.hasBeenActive && !navigator.userActivation.isActive) {
+                            console.log('[Anti-Detect] Đã chặn trang web tự động mở quảng cáo/popup:', url);
+                            return null;
+                        }
+                        // Đổi thành mở đè lên cùng 1 tab
                         window.location.href = url;
                         return window;
                     };
+                    
+                    // 2. Chặn các hàm tự động chuyển trang của Javascript khi chưa tương tác
+                    const blockAutoRedirect = (originalFn) => function(url) {
+                        if (!navigator.userActivation.hasBeenActive) {
+                            console.log('[Anti-Detect] Đã chặn trang web tự động chuyển hướng.');
+                            return;
+                        }
+                        originalFn.call(window.location, url);
+                    };
+                    window.location.assign = blockAutoRedirect(window.location.assign);
+                    window.location.replace = blockAutoRedirect(window.location.replace);
+
                     setInterval(() => {
+                        // 3. Xóa thuộc tính target="_blank" để ép các link click vào mở trên cùng 1 tab
                         document.querySelectorAll('a[target="_blank"]').forEach(a => a.removeAttribute('target'));
+                        
+                        // 4. Xóa thẻ Meta Refresh gây tự động chuyển trang ngay khi load web
+                        if (!navigator.userActivation.hasBeenActive) {
+                            document.querySelectorAll('meta[http-equiv="refresh"]').forEach(meta => meta.remove());
+                        }
                     }, 500);
                 """)
                 # ---------------------------------------------
