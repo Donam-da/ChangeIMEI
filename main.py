@@ -1,6 +1,7 @@
 import os
 import sys
 import threading
+import time
 import random
 import tkinter as tk
 import shutil
@@ -36,6 +37,10 @@ class AntiDetectGUI:
         self.is_dark_mode = True
         self.btn_theme = tk.Button(root, text="🌙 Dark", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_theme, activebackground="#333333", activeforeground="#00ffff")
         self.btn_theme.place(relx=1.0, x=-200, y=15, width=75)
+
+        self.clock_label = tk.Label(root, font=("Courier", 8, "bold"), bg="#1e1e1e", fg="#00e676", relief=tk.FLAT)
+        self.clock_label.place(x=15, y=15, width=160, height=22)
+        self.update_clock()
 
         # Bảng thông tin mạng (Dùng lưới Grid để căn chỉnh Icon và Chữ luôn thẳng hàng)
         net_frame = tk.Frame(root, bg="#121212")
@@ -174,6 +179,11 @@ class AntiDetectGUI:
             self.analysis_label.config(text=f"🔍 Cookies: {cookie_count} | ⚠️ 404: {prob_404:.1f}% | 🐌 Server: {prob_overload:.1f}% | 🤖 Bot: {prob_bot:.1f}% | ⚙️ Lệnh Auto: {auto_cmds}", fg=self.get_color(color))
         self.root.after(0, _update)
 
+    def update_clock(self):
+        current_time = time.strftime("%H:%M:%S | %d/%m/%Y")
+        self.clock_label.config(text=current_time)
+        self.root.after(1000, self.update_clock)
+
     def apply_scale(self, event=None):
         """Áp dụng bộ lọc tỷ lệ phóng to giao diện"""
         scale_str = self.scale_var.get()
@@ -186,9 +196,10 @@ class AntiDetectGUI:
         new_h = int(500 * self.current_scale)
         self.root.geometry(f"{new_w}x{new_h}")
 
-        # Tính toán lại tọa độ cho nút nằm đè (Ghim và Theme)
+        # Tính toán lại tọa độ cho các thành phần neo cố định (Ghim, Theme, Đồng hồ)
         self.btn_pin.place(relx=1.0, x=int(-120 * self.current_scale), y=int(15 * self.current_scale), width=int(100 * self.current_scale))
         self.btn_theme.place(relx=1.0, x=int(-200 * self.current_scale), y=int(15 * self.current_scale), width=int(75 * self.current_scale))
+        self.clock_label.place(x=int(15 * self.current_scale), y=int(15 * self.current_scale), width=int(160 * self.current_scale), height=int(22 * self.current_scale))
 
         self._scale_widget_tree(self.root, self.current_scale)
 
