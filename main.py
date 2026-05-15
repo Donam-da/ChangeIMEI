@@ -33,6 +33,10 @@ class AntiDetectGUI:
         self.btn_pin = tk.Button(root, text="📌 Ghim", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_pin, activebackground="#333333", activeforeground="#00e676")
         self.btn_pin.place(relx=1.0, x=-120, y=15, width=100)
 
+        self.is_dark_mode = True
+        self.btn_theme = tk.Button(root, text="🌙 Dark", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_theme, activebackground="#333333", activeforeground="#00ffff")
+        self.btn_theme.place(relx=1.0, x=-200, y=15, width=75)
+
         # Bảng thông tin mạng (Dùng lưới Grid để căn chỉnh Icon và Chữ luôn thẳng hàng)
         net_frame = tk.Frame(root, bg="#121212")
         net_frame.pack(pady=(0, 8))
@@ -167,7 +171,7 @@ class AntiDetectGUI:
             # Tự động đổi màu cảnh báo nếu bất kỳ thông số rủi ro nào vượt ngưỡng
             max_risk = max(prob_404, prob_overload, prob_bot)
             color = "#00e676" if max_risk <= 5 else "#ffb74d" if max_risk <= 20 else "#ff5252"
-            self.analysis_label.config(text=f"🔍 Cookies: {cookie_count} | ⚠️ 404: {prob_404:.1f}% | 🐌 Server: {prob_overload:.1f}% | 🤖 Bot: {prob_bot:.1f}% | ⚙️ Lệnh Auto: {auto_cmds}", fg=color)
+            self.analysis_label.config(text=f"🔍 Cookies: {cookie_count} | ⚠️ 404: {prob_404:.1f}% | 🐌 Server: {prob_overload:.1f}% | 🤖 Bot: {prob_bot:.1f}% | ⚙️ Lệnh Auto: {auto_cmds}", fg=self.get_color(color))
         self.root.after(0, _update)
 
     def apply_scale(self, event=None):
@@ -182,8 +186,9 @@ class AntiDetectGUI:
         new_h = int(500 * self.current_scale)
         self.root.geometry(f"{new_w}x{new_h}")
 
-        # Tính toán lại tọa độ cho nút nằm đè (Ghim)
+        # Tính toán lại tọa độ cho nút nằm đè (Ghim và Theme)
         self.btn_pin.place(relx=1.0, x=int(-120 * self.current_scale), y=int(15 * self.current_scale), width=int(100 * self.current_scale))
+        self.btn_theme.place(relx=1.0, x=int(-200 * self.current_scale), y=int(15 * self.current_scale), width=int(75 * self.current_scale))
 
         self._scale_widget_tree(self.root, self.current_scale)
 
@@ -216,6 +221,67 @@ class AntiDetectGUI:
 
         for child in widget.winfo_children():
             self._scale_widget_tree(child, f)
+
+    def get_theme_maps(self, to_light=True):
+        bg_map = {
+            "#121212": "#f5f5f5", "#1e1e1e": "#ffffff",
+            "#263238": "#b3e5fc", "#333333": "#e0e0e0", "#555555": "#cccccc"
+        }
+        fg_map = {
+            "#00ffff": "#00509e", "#e0e0e0": "#333333", "#b388ff": "#5e35b1",
+            "#00e676": "#2e7d32", "#ffb74d": "#ef6c00", "#4dd0e1": "#00838f",
+            "#f48fb1": "#ad1457", "#a0a0a0": "#666666", "#00bcd4": "#1565c0",
+            "#ff5252": "#d32f2f"
+        }
+        if not to_light:
+            bg_map = {v: k for k, v in bg_map.items()}
+            fg_map = {v: k for k, v in fg_map.items()}
+        return bg_map, fg_map
+
+    def get_color(self, hex_color):
+        if getattr(self, 'is_dark_mode', True):
+            return hex_color
+        _, fg_map = self.get_theme_maps(to_light=True)
+        return fg_map.get(hex_color.lower(), hex_color)
+
+    def _apply_theme_to_widget(self, widget, bg_map, fg_map):
+        try:
+            bg = str(widget.cget("bg")).lower()
+            if bg in bg_map: widget.config(bg=bg_map[bg])
+        except: pass
+        try:
+            fg = str(widget.cget("fg")).lower()
+            if fg in fg_map: widget.config(fg=fg_map[fg])
+        except: pass
+        try:
+            abg = str(widget.cget("activebackground")).lower()
+            if abg in bg_map: widget.config(activebackground=bg_map[abg])
+        except: pass
+        try:
+            afg = str(widget.cget("activeforeground")).lower()
+            if afg in fg_map: widget.config(activeforeground=fg_map[afg])
+        except: pass
+        try:
+            ibg = str(widget.cget("insertbackground")).lower()
+            if ibg in fg_map: widget.config(insertbackground=fg_map[ibg])
+        except: pass
+        try:
+            rbg = str(widget.cget("readonlybackground")).lower()
+            if rbg in bg_map: widget.config(readonlybackground=bg_map[rbg])
+        except: pass
+        for child in widget.winfo_children():
+            self._apply_theme_to_widget(child, bg_map, fg_map)
+
+    def apply_current_theme(self, widget):
+        if not getattr(self, 'is_dark_mode', True):
+            bg_map, fg_map = self.get_theme_maps(to_light=True)
+            self._apply_theme_to_widget(widget, bg_map, fg_map)
+
+    def toggle_theme(self):
+        self.is_dark_mode = not self.is_dark_mode
+        self.btn_theme.config(text="🌙 Dark" if self.is_dark_mode else "☀️ Light")
+        bg_map, fg_map = self.get_theme_maps(to_light=not self.is_dark_mode)
+        self._apply_theme_to_widget(self.root, bg_map, fg_map)
 
     def load_credentials(self):
         try:
@@ -299,6 +365,7 @@ class AntiDetectGUI:
         tk.Button(self.cred_dialog, text="💾 Lưu và Đóng", command=save, bg="#00bcd4", fg="black", font=("Arial", 9, "bold"), relief=tk.FLAT, activebackground="#00e5ff").pack(pady=15, ipadx=20)
         
         self._scale_widget_tree(self.cred_dialog, self.current_scale)
+        self.apply_current_theme(self.cred_dialog)
 
     def start_ip_monitor(self):
         """Chạy luồng ngầm liên tục kiểm tra IP mạng của máy mỗi 2 giây"""
@@ -323,8 +390,10 @@ class AntiDetectGUI:
             last_time = time.time()
 
             def update_ui(i, l, s, d, err=False):
-                self.ip_label.config(text=f"🌐 IP: {i}", fg="#ff5252" if err else "#00e676")
-                self.ping_label.config(text=f"⚡ Ping: {l}", fg="#ff5252" if err else "#ffb74d")
+                c_ip = "#ff5252" if err else "#00e676"
+                c_ping = "#ff5252" if err else "#ffb74d"
+                self.ip_label.config(text=f"🌐 IP: {i}", fg=self.get_color(c_ip))
+                self.ping_label.config(text=f"⚡ Ping: {l}", fg=self.get_color(c_ping))
                 self.speed_label.config(text=f"⬇️ Speed: {s}")
                 if d != "N/A":
                     self.data_label.config(text=f"Data: {d}")
@@ -393,9 +462,9 @@ class AntiDetectGUI:
         self.is_pinned = not self.is_pinned
         self.root.attributes("-topmost", self.is_pinned)
         if self.is_pinned:
-            self.btn_pin.config(text="📍 Đã Ghim", fg="#00e676")
+            self.btn_pin.config(text="📍 Đã Ghim", fg=self.get_color("#00e676"))
         else:
-            self.btn_pin.config(text="📌 Ghim", fg="#a0a0a0")
+            self.btn_pin.config(text="📌 Ghim", fg=self.get_color("#a0a0a0"))
 
     def show_initialization(self):
         """Hiển thị tiến trình khởi tạo thiết bị giả lập mới khi mở tool hoặc sau khi dọn dẹp."""
@@ -419,6 +488,7 @@ class AntiDetectGUI:
         step_label.pack(pady=4)
         
         self._scale_widget_tree(prog_win, self.current_scale)
+        self.apply_current_theme(prog_win)
         
         steps = [
             "Đang sinh dữ liệu thiết bị 1/5...",
@@ -454,7 +524,7 @@ class AntiDetectGUI:
             self.btn_delete.config(state=tk.DISABLED)
             self.btn_auto_task.config(state=tk.DISABLED)
             self.btn_auto_task_step.config(state=tk.DISABLED)
-            self.status_label.config(text=f"Trạng thái: Sẵn sàng (Thiết bị {self.profiles_used}/5)", fg="#00e676")
+            self.status_label.config(text=f"Trạng thái: Sẵn sàng (Thiết bị {self.profiles_used}/5)", fg=self.get_color("#00e676"))
         else:
             self.current_profile = None
             self.device_info_frame.config(text="Chi tiết trình duyệt ẩn danh (Hết lượt):")
@@ -462,7 +532,7 @@ class AntiDetectGUI:
             self.btn_ip_that.config(state=tk.DISABLED)
             self.btn_proxy.config(state=tk.DISABLED)
             self.btn_delete.config(state=tk.DISABLED)
-            self.status_label.config(text="Trạng thái: Hết thiết bị. Vui lòng tắt phần mềm và mở lại.", fg="#ff5252")
+            self.status_label.config(text="Trạng thái: Hết thiết bị. Vui lòng tắt phần mềm và mở lại.", fg=self.get_color("#ff5252"))
 
     def update_device_info_display(self, profile, exhausted=False):
         """Cập nhật khung hiển thị thông tin thiết bị đã tạo."""
@@ -532,9 +602,10 @@ class AntiDetectGUI:
             dialog.destroy()
             
         tk.Button(btn_frame, text="Dọn dẹp & Thoát ngay", command=do_cleanup_and_exit, bg="#b71c1c", fg="white", font=("Arial", 7, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white").pack(side=tk.LEFT, padx=8)
-        tk.Button(btn_frame, text="Hủy (Quay lại)", command=cancel, bg="#333333", fg="white", font=("Arial", 7), relief=tk.FLAT, activebackground="#555555", activeforeground="white").pack(side=tk.LEFT, padx=8)
+        tk.Button(btn_frame, text="Hủy (Quay lại)", command=cancel, bg="#333333", fg="#e0e0e0", font=("Arial", 7), relief=tk.FLAT, activebackground="#555555", activeforeground="#e0e0e0").pack(side=tk.LEFT, padx=8)
         
         self._scale_widget_tree(dialog, self.current_scale)
+        self.apply_current_theme(dialog)
 
         def tick(time_left):
             if not countdown_active[0] or not dialog.winfo_exists():
@@ -577,8 +648,8 @@ class AntiDetectGUI:
             self.btn_auto_login.config(state=tk.NORMAL)
             self.btn_auto_task.config(state=tk.NORMAL)
             self.btn_auto_task_step.config(state=tk.NORMAL)
-            self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="#00bcd4")
-            self.analysis_label.config(text="🔍 Phân tích mạng: Đang thu thập dữ liệu...", fg="#b388ff")
+            self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg=self.get_color("#00bcd4"))
+            self.analysis_label.config(text="🔍 Phân tích mạng: Đang thu thập dữ liệu...", fg=self.get_color("#b388ff"))
         else:
             self.btn_auto_login.config(state=tk.DISABLED)
             self.btn_auto_task.config(state=tk.DISABLED)
@@ -595,34 +666,34 @@ class AntiDetectGUI:
             self.engine.login_phone = creds.get("phone")
             self.engine.login_password = creds.get("password")
             self.engine._pending_action = "fill_login"
-            self.status_label.config(text="Trạng thái: Đang tự động điền tài khoản...", fg="#00bcd4")
-            self.root.after(2000, lambda: self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="#00bcd4"))
+            self.status_label.config(text="Trạng thái: Đang tự động điền tài khoản...", fg=self.get_color("#00bcd4"))
+            self.root.after(2000, lambda: self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg=self.get_color("#00bcd4")))
             
     def trigger_auto_task(self):
         """Gửi lệnh thực hiện nhiệm vụ lấy mã đến luồng duyệt web"""
         if self.engine.playwright is not None:
             self.engine._pending_action = "auto_task"
-            self.status_label.config(text="Trạng thái: Đang chạy tiến trình lấy mã tự động...", fg="#b388ff")
-            self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Đang theo dõi tiến trình lấy mã...", fg="#b388ff"))
+            self.status_label.config(text="Trạng thái: Đang chạy tiến trình lấy mã tự động...", fg=self.get_color("#b388ff"))
+            self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Đang theo dõi tiến trình lấy mã...", fg=self.get_color("#b388ff")))
 
     def trigger_auto_task_step(self):
         """Gửi lệnh thực hiện nhiệm vụ lấy mã theo step đến luồng duyệt web"""
         if self.engine.playwright is not None:
             self.engine._pending_action = "auto_task_step"
-            self.status_label.config(text="Trạng thái: Đang chạy tiến trình lấy mã upto step...", fg="#b388ff")
-            self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Đang theo dõi tiến trình lấy mã...", fg="#b388ff"))
+            self.status_label.config(text="Trạng thái: Đang chạy tiến trình lấy mã upto step...", fg=self.get_color("#b388ff"))
+            self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Đang theo dõi tiến trình lấy mã...", fg=self.get_color("#b388ff")))
 
     def run_browser_thread(self, target_url, use_proxy):
         """Chạy việc mở trình duyệt trong một thread riêng để không làm treo giao diện."""
         # Cập nhật giao diện ngay lập tức
         self.set_ui_for_browser_state(is_running=True)
-        self.status_label.config(text="Trạng thái: Đang khởi chạy trình duyệt...", fg="#ffb74d")
+        self.status_label.config(text="Trạng thái: Đang khởi chạy trình duyệt...", fg=self.get_color("#ffb74d"))
         
         try:
             # Callback này sẽ được gọi từ worker thread khi trình duyệt đã mở thành công
             def on_launch_success(device_profile):
                 def update_ui():
-                    self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="#00bcd4")
+                    self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg=self.get_color("#00bcd4"))
                     self.update_device_info_display(device_profile)
                 self.root.after(0, update_ui)
 
@@ -644,7 +715,7 @@ class AntiDetectGUI:
                     self.btn_ip_that.config(state=tk.DISABLED)
                     self.btn_proxy.config(state=tk.DISABLED)
                     self.btn_delete.config(state=tk.NORMAL)
-                    self.status_label.config(text="Trạng thái: Trình duyệt đã đóng. Vui lòng bấm 'Xóa Session' để dọn dẹp.", fg="#ff5252")
+                    self.status_label.config(text="Trạng thái: Trình duyệt đã đóng. Vui lòng bấm 'Xóa Session' để dọn dẹp.", fg=self.get_color("#ff5252"))
             self.root.after(0, on_browser_thread_exit)
 
     def launch_ip_that(self):
@@ -658,7 +729,7 @@ class AntiDetectGUI:
     def delete_session(self):
         """Thực hiện dọn dẹp session với thanh tiến trình trực quan."""
         self.btn_delete.config(state=tk.DISABLED) # Tránh click đúp
-        self.status_label.config(text="Trạng thái: Đang tiêu hủy dữ liệu...", fg="#ffb74d")
+        self.status_label.config(text="Trạng thái: Đang tiêu hủy dữ liệu...", fg=self.get_color("#ffb74d"))
         self._is_wiping = True
         
         # Tạo cửa sổ hiển thị tiến trình
@@ -679,6 +750,7 @@ class AntiDetectGUI:
         file_label.pack(pady=5)
         
         self._scale_widget_tree(prog_win, self.current_scale)
+        self.apply_current_theme(prog_win)
 
         # Các thành phần dữ liệu trình duyệt bị xóa khỏi RAM
         items_to_wipe = [
