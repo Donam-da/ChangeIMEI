@@ -13,70 +13,81 @@ class AntiDetectGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("ChangeIMEI Anti-Detect Browser")
-        self.root.geometry("600x535")
+        self.root.geometry("900x500")
+        self.root.configure(bg="#121212")
         
         self.engine = BrowserEngine()
         
         # Thiết kế các thành phần Giao diện (UI)
-        tk.Label(root, text="CÔNG CỤ ANTI-DETECT: CHANGE IMEI", font=("Arial", 14, "bold"), fg="#333").pack(pady=15)
+        tk.Label(root, text="CÔNG CỤ ANTI-DETECT: CHANGE IMEI", font=("Arial", 14, "bold"), fg="#00ffff", bg="#121212").pack(pady=15)
         
-        tk.Label(root, text="Nhập link URL muốn mở:", font=("Arial", 10)).pack()
-        self.url_entry = tk.Entry(root, width=60, font=("Arial", 10))
-        self.url_entry.pack(pady=5)
+        tk.Label(root, text="Nhập link URL muốn mở:", font=("Arial", 10), fg="#e0e0e0", bg="#121212").pack()
+        self.url_entry = tk.Entry(root, width=60, font=("Arial", 10), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT)
+        self.url_entry.pack(pady=5, ipady=3)
         self.url_entry.insert(0, "https://www.google.com/search?q=moneytask.top&sca_esv=3d73e6268d6609d9&sxsrf=ANbL-n5OwmW4jJHMCw_P-MHSjJYYql4e-Q%3A1778737875726&source=hp&ei=02IFas2XKteO2roP_vuQwQE&iflsig=AFdpzrgAAAAAagVw4whkttcjBBee1Pj39b_eAIp1hlot&oq=money&gs_lp=Egdnd3Mtd2l6IgVtb25leSoCCAAyBBAjGCcyChAAGIAEGIoFGEMyCxAAGIAEGLEDGIMBMgsQABiABBixAxiDATINEAAYgAQYigUYQxixAzILEAAYgAQYigUYkgMyFhAuGIAEGIoFGEMYsQMYyQMYxwEY0QMyChAAGIAEGIoFGEMyEBAuGIAEGIoFGEMYsQMYgwEyChAuGIAEGIoFGENImjRQyh5YqCRwAXgAkAEAmAHGB6AB4BaqAQkzLTIuMS4wLjK4AQHIAQD4AQGYAgagArsXqAIKwgIHECMY6gIYJ8ICDBAjGIAEGIoFGBMYJ8ICCxAuGIAEGLEDGIMBwgIIEC4YgAQYsQPCAg4QLhiABBiKBRixAxiDAcICCBAAGIAEGLEDwgIREC4YgAQYsQMYgwEYxwEY0QPCAhAQABiABBiKBRhDGLEDGIMBmAMN8QXuyFYW96YaBJIHCzEuMy0yLjEuMS4xoAepNLIHCTMtMi4xLjEuMbgHrhfCBwUyLTIuNMgHNoAIAQ&sclient=gws-wiz")
         
         # Các nút bấm
-        self.btn_ip_that = tk.Button(root, text="🚀 Mở Trình Duyệt (IP Thật - Vượt Link)", 
-                                     command=self.launch_ip_that, bg="#d9edf7", font=("Arial", 10, "bold"), width=35)
-        self.btn_ip_that.pack(pady=5)
+        btn_frame = tk.Frame(root, bg="#121212")
+        btn_frame.pack(pady=10)
+
+        btn_style = {"font": ("Arial", 10, "bold"), "relief": tk.FLAT, "activebackground": "#00e5ff", "activeforeground": "black"}
+
+        self.btn_ip_that = tk.Button(btn_frame, text="🚀 Mở Trình Duyệt (IP Thật)", 
+                                     command=self.launch_ip_that, bg="#00bcd4", fg="black", width=25, **btn_style)
+        self.btn_ip_that.grid(row=0, column=0, padx=5, pady=5)
         
-        self.btn_proxy = tk.Button(root, text="🌐 Mở Trình Duyệt (Có Dùng Proxy)", 
-                                   command=self.launch_proxy, bg="#dff0d8", font=("Arial", 10), width=35)
-        self.btn_proxy.pack(pady=5)
+        self.btn_proxy = tk.Button(btn_frame, text="🌐 Mở Trình Duyệt (Proxy)", 
+                                   command=self.launch_proxy, bg="#00838f", fg="white", width=25, **btn_style)
+        self.btn_proxy.grid(row=0, column=1, padx=5, pady=5)
 
-        self.btn_auto_login = tk.Button(root, text="🔑 Tự Động Điền Tài Khoản (Login)", 
-                                        command=self.trigger_auto_login, bg="#fcf8e3", font=("Arial", 10, "bold"), width=35,
-                                        state=tk.DISABLED)
-        self.btn_auto_login.pack(pady=5)
+        self.btn_auto_login = tk.Button(btn_frame, text="🔑 Điền Tài Khoản", 
+                                        command=self.trigger_auto_login, bg="#263238", fg="#00bcd4", width=25,
+                                        state=tk.DISABLED, **btn_style)
+        self.btn_auto_login.grid(row=0, column=2, padx=5, pady=5)
 
-        self.btn_auto_task = tk.Button(root, text="🤖 Tự Động Làm Nhiệm Vụ (Lấy Mã)", 
-                                        command=self.trigger_auto_task, bg="#e8dff5", font=("Arial", 10, "bold"), width=35,
-                                        state=tk.DISABLED)
-        self.btn_auto_task.pack(pady=5)
+        self.btn_auto_task_step = tk.Button(btn_frame, text="🤖 Làm nhiệm vụ Upto Step", 
+                                        command=self.trigger_auto_task_step, bg="#263238", fg="#00bcd4", width=25,
+                                        state=tk.DISABLED, **btn_style)
+        self.btn_auto_task_step.grid(row=1, column=0, padx=5, pady=5)
 
-        self.btn_delete = tk.Button(root, text="🗑️ Xóa Session & Dọn Dẹp",
-                                    command=self.delete_session, bg="#f2dede", font=("Arial", 10, "bold"), width=35,
-                                    state=tk.DISABLED)
-        self.btn_delete.pack(pady=5)
+        self.btn_auto_task = tk.Button(btn_frame, text="🤖 Làm nhiệm vụ Lấy Mã", 
+                                        command=self.trigger_auto_task, bg="#263238", fg="#00bcd4", width=25,
+                                        state=tk.DISABLED, **btn_style)
+        self.btn_auto_task.grid(row=1, column=1, padx=5, pady=5)
+
+        self.btn_delete = tk.Button(btn_frame, text="🗑️ Xóa Session & Dọn Dẹp",
+                                    command=self.delete_session, bg="#b71c1c", fg="white", width=25,
+                                    state=tk.DISABLED, font=("Arial", 10, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white")
+        self.btn_delete.grid(row=1, column=2, padx=5, pady=5)
 
         # --- Hiển thị đường dẫn dữ liệu ---
-        info_frame = tk.Frame(root)
+        info_frame = tk.Frame(root, bg="#121212")
         info_frame.pack(pady=(10, 0), fill=tk.X, padx=20)
 
         tk.Label(info_frame, 
                  text="Nơi lưu trữ trình duyệt (máy ảo):", 
-                 font=("Arial", 9, "italic"),
-                 justify=tk.LEFT).pack(anchor='w')
+                 font=("Arial", 9, "italic"), fg="#a0a0a0", bg="#121212",
+                 justify=tk.LEFT).pack(anchor='w', pady=(0, 2))
         
         browser_path = self.get_playwright_browser_path()
-        self.path_entry = tk.Entry(info_frame, font=("Courier", 8))
+        self.path_entry = tk.Entry(info_frame, font=("Courier", 8), bg="#1e1e1e", fg="#00bcd4", readonlybackground="#1e1e1e", relief=tk.FLAT)
         self.path_entry.insert(0, browser_path)
         self.path_entry.config(state='readonly')
-        self.path_entry.pack(fill=tk.X, expand=True)
+        self.path_entry.pack(fill=tk.X, expand=True, ipady=3)
 
         tk.Label(info_frame, 
                  text="*Đây là nơi Playwright cài đặt các trình duyệt (Chromium, Firefox,...).\n*Dữ liệu phiên (cookie, cache) của mỗi lần chạy là tạm thời và sẽ bị xóa sạch.",
-                 font=("Arial", 8), fg="darkblue", justify=tk.LEFT).pack(anchor='w', pady=(2,0))
+                 font=("Arial", 8), fg="#4dd0e1", bg="#121212", justify=tk.LEFT).pack(anchor='w', pady=(2,0))
         # --- Kết thúc ---
 
         # --- Hiển thị thông số cấu hình giả lập ---
-        self.device_info_frame = tk.LabelFrame(root, text="Chi tiết trình duyệt ẩn danh vừa tạo:", font=("Arial", 9, "bold"))
+        self.device_info_frame = tk.LabelFrame(root, text="Chi tiết trình duyệt ẩn danh vừa tạo:", font=("Arial", 9, "bold"), bg="#121212", fg="#00bcd4")
         self.device_info_frame.pack(pady=(10, 0), fill=tk.BOTH, expand=False, padx=20)
         
-        self.device_info_text = tk.Text(self.device_info_frame, height=5, font=("Courier", 8), bg="#f9f9f9", state=tk.DISABLED, wrap=tk.WORD)
-        self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.device_info_text = tk.Text(self.device_info_frame, height=5, font=("Courier", 8), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
+        self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
 
-        self.status_label = tk.Label(root, text="Trạng thái: Sẵn sàng", fg="gray", font=("Arial", 9))
+        self.status_label = tk.Label(root, text="Trạng thái: Sẵn sàng", fg="#a0a0a0", bg="#121212", font=("Arial", 9))
         self.status_label.pack(side=tk.BOTTOM, pady=10)
 
         # Đảm bảo dọn dẹp session khi người dùng đóng cửa sổ chính
@@ -102,16 +113,17 @@ class AntiDetectGUI:
         prog_win = tk.Toplevel(self.root)
         prog_win.title("Đang nạp môi trường...")
         prog_win.geometry("420x150")
+        prog_win.configure(bg="#121212")
         prog_win.transient(self.root)
         prog_win.grab_set()
         prog_win.protocol("WM_DELETE_WINDOW", lambda: None)
         
-        tk.Label(prog_win, text="Đang khởi tạo cấu hình ẩn danh hoàn toàn mới...", font=("Arial", 10, "bold"), fg="#333").pack(pady=10)
+        tk.Label(prog_win, text="Đang khởi tạo cấu hình ẩn danh hoàn toàn mới...", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=10)
         
         progress = ttk.Progressbar(prog_win, orient=tk.HORIZONTAL, length=380, mode='determinate')
         progress.pack(pady=5)
         
-        step_label = tk.Label(prog_win, text="Bắt đầu...", font=("Courier", 9), fg="blue")
+        step_label = tk.Label(prog_win, text="Bắt đầu...", font=("Courier", 9), fg="#00bcd4", bg="#121212")
         step_label.pack(pady=5)
         
         steps = [
@@ -147,7 +159,8 @@ class AntiDetectGUI:
             self.btn_proxy.config(state=tk.NORMAL)
             self.btn_delete.config(state=tk.DISABLED)
             self.btn_auto_task.config(state=tk.DISABLED)
-            self.status_label.config(text=f"Trạng thái: Sẵn sàng (Thiết bị {self.profiles_used}/5)", fg="green")
+            self.btn_auto_task_step.config(state=tk.DISABLED)
+            self.status_label.config(text=f"Trạng thái: Sẵn sàng (Thiết bị {self.profiles_used}/5)", fg="#00e676")
         else:
             self.current_profile = None
             self.device_info_frame.config(text="Chi tiết trình duyệt ẩn danh (Hết lượt):")
@@ -155,7 +168,7 @@ class AntiDetectGUI:
             self.btn_ip_that.config(state=tk.DISABLED)
             self.btn_proxy.config(state=tk.DISABLED)
             self.btn_delete.config(state=tk.DISABLED)
-            self.status_label.config(text="Trạng thái: Hết thiết bị. Vui lòng tắt phần mềm và mở lại.", fg="red")
+            self.status_label.config(text="Trạng thái: Hết thiết bị. Vui lòng tắt phần mềm và mở lại.", fg="#ff5252")
 
     def update_device_info_display(self, profile, exhausted=False):
         """Cập nhật khung hiển thị thông tin thiết bị đã tạo."""
@@ -186,15 +199,16 @@ class AntiDetectGUI:
         dialog = tk.Toplevel(self.root)
         dialog.title("Cảnh báo thoát")
         dialog.geometry("380x160")
+        dialog.configure(bg="#121212")
         dialog.transient(self.root) # Nổi trên cửa sổ chính
         dialog.grab_set() # Khóa cửa sổ chính cho đến khi xử lý xong hộp thoại
         
-        tk.Label(dialog, text="Một phiên làm việc ẩn danh đang tồn tại!\nBạn hãy dọn dẹp hoặc hệ thống sẽ tự động dọn dẹp sau:", font=("Arial", 10)).pack(pady=10)
+        tk.Label(dialog, text="Một phiên làm việc ẩn danh đang tồn tại!\nBạn hãy dọn dẹp hoặc hệ thống sẽ tự động dọn dẹp sau:", font=("Arial", 10), fg="#e0e0e0", bg="#121212").pack(pady=10)
         
-        countdown_label = tk.Label(dialog, text="3", font=("Arial", 18, "bold"), fg="red")
+        countdown_label = tk.Label(dialog, text="3", font=("Arial", 18, "bold"), fg="#ff5252", bg="#121212")
         countdown_label.pack()
         
-        btn_frame = tk.Frame(dialog)
+        btn_frame = tk.Frame(dialog, bg="#121212")
         btn_frame.pack(pady=10)
         
         countdown_active = [True] # Dùng list để dễ dàng thay đổi state trong local function
@@ -223,8 +237,8 @@ class AntiDetectGUI:
             countdown_active[0] = False
             dialog.destroy()
             
-        tk.Button(btn_frame, text="Dọn dẹp & Thoát ngay", command=do_cleanup_and_exit, bg="#f2dede", font=("Arial", 9, "bold")).pack(side=tk.LEFT, padx=10)
-        tk.Button(btn_frame, text="Hủy (Quay lại)", command=cancel).pack(side=tk.LEFT, padx=10)
+        tk.Button(btn_frame, text="Dọn dẹp & Thoát ngay", command=do_cleanup_and_exit, bg="#b71c1c", fg="white", font=("Arial", 9, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white").pack(side=tk.LEFT, padx=10)
+        tk.Button(btn_frame, text="Hủy (Quay lại)", command=cancel, bg="#333333", fg="white", font=("Arial", 9), relief=tk.FLAT, activebackground="#555555", activeforeground="white").pack(side=tk.LEFT, padx=10)
         
         def tick(time_left):
             if not countdown_active[0] or not dialog.winfo_exists():
@@ -266,36 +280,45 @@ class AntiDetectGUI:
             self.btn_delete.config(state=tk.NORMAL)
             self.btn_auto_login.config(state=tk.NORMAL)
             self.btn_auto_task.config(state=tk.NORMAL)
-            self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="blue")
+            self.btn_auto_task_step.config(state=tk.NORMAL)
+            self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="#00bcd4")
         else:
             self.btn_auto_login.config(state=tk.DISABLED)
             self.btn_auto_task.config(state=tk.DISABLED)
+            self.btn_auto_task_step.config(state=tk.DISABLED)
 
     def trigger_auto_login(self):
         """Gửi lệnh điền tài khoản đến luồng duyệt web"""
         if self.engine.playwright is not None:
             self.engine._pending_action = "fill_login"
-            self.status_label.config(text="Trạng thái: Đang tự động điền tài khoản...", fg="blue")
-            self.root.after(2000, lambda: self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="blue"))
+            self.status_label.config(text="Trạng thái: Đang tự động điền tài khoản...", fg="#00bcd4")
+            self.root.after(2000, lambda: self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="#00bcd4"))
             
     def trigger_auto_task(self):
         """Gửi lệnh thực hiện nhiệm vụ lấy mã đến luồng duyệt web"""
         if self.engine.playwright is not None:
             self.engine._pending_action = "auto_task"
-            self.status_label.config(text="Trạng thái: Đang chạy tiến trình lấy mã tự động...", fg="purple")
-            self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Đang theo dõi tiến trình lấy mã...", fg="purple"))
+            self.status_label.config(text="Trạng thái: Đang chạy tiến trình lấy mã tự động...", fg="#b388ff")
+            self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Đang theo dõi tiến trình lấy mã...", fg="#b388ff"))
+
+    def trigger_auto_task_step(self):
+        """Gửi lệnh thực hiện nhiệm vụ lấy mã theo step đến luồng duyệt web"""
+        if self.engine.playwright is not None:
+            self.engine._pending_action = "auto_task_step"
+            self.status_label.config(text="Trạng thái: Đang chạy tiến trình lấy mã upto step...", fg="#b388ff")
+            self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Đang theo dõi tiến trình lấy mã...", fg="#b388ff"))
 
     def run_browser_thread(self, target_url, use_proxy):
         """Chạy việc mở trình duyệt trong một thread riêng để không làm treo giao diện."""
         # Cập nhật giao diện ngay lập tức
         self.set_ui_for_browser_state(is_running=True)
-        self.status_label.config(text="Trạng thái: Đang khởi chạy trình duyệt...", fg="orange")
+        self.status_label.config(text="Trạng thái: Đang khởi chạy trình duyệt...", fg="#ffb74d")
         
         try:
             # Callback này sẽ được gọi từ worker thread khi trình duyệt đã mở thành công
             def on_launch_success(device_profile):
                 def update_ui():
-                    self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="blue")
+                    self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="#00bcd4")
                     self.update_device_info_display(device_profile)
                 self.root.after(0, update_ui)
 
@@ -317,7 +340,7 @@ class AntiDetectGUI:
                     self.btn_ip_that.config(state=tk.DISABLED)
                     self.btn_proxy.config(state=tk.DISABLED)
                     self.btn_delete.config(state=tk.NORMAL)
-                    self.status_label.config(text="Trạng thái: Trình duyệt đã đóng. Vui lòng bấm 'Xóa Session' để dọn dẹp.", fg="red")
+                    self.status_label.config(text="Trạng thái: Trình duyệt đã đóng. Vui lòng bấm 'Xóa Session' để dọn dẹp.", fg="#ff5252")
             self.root.after(0, on_browser_thread_exit)
 
     def launch_ip_that(self):
@@ -331,23 +354,24 @@ class AntiDetectGUI:
     def delete_session(self):
         """Thực hiện dọn dẹp session với thanh tiến trình trực quan."""
         self.btn_delete.config(state=tk.DISABLED) # Tránh click đúp
-        self.status_label.config(text="Trạng thái: Đang tiêu hủy dữ liệu...", fg="orange")
+        self.status_label.config(text="Trạng thái: Đang tiêu hủy dữ liệu...", fg="#ffb74d")
         self._is_wiping = True
         
         # Tạo cửa sổ hiển thị tiến trình
         prog_win = tk.Toplevel(self.root)
         prog_win.title("Đang dọn dẹp...")
         prog_win.geometry("420x150")
+        prog_win.configure(bg="#121212")
         prog_win.transient(self.root)
         prog_win.grab_set() # Khóa màn hình chính
         prog_win.protocol("WM_DELETE_WINDOW", lambda: None) # Vô hiệu hóa nút X để tránh làm gián đoạn
 
-        tk.Label(prog_win, text="Đang tiêu hủy dấu vết, Cookie, Lịch sử...", font=("Arial", 10, "bold")).pack(pady=10)
+        tk.Label(prog_win, text="Đang tiêu hủy dấu vết, Cookie, Lịch sử...", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=10)
 
         progress = ttk.Progressbar(prog_win, orient=tk.HORIZONTAL, length=380, mode='determinate')
         progress.pack(pady=5)
 
-        file_label = tk.Label(prog_win, text="Khởi tạo...", font=("Courier", 8), fg="gray")
+        file_label = tk.Label(prog_win, text="Khởi tạo...", font=("Courier", 8), fg="#00bcd4", bg="#121212")
         file_label.pack(pady=5)
 
         # Các thành phần dữ liệu trình duyệt bị xóa khỏi RAM

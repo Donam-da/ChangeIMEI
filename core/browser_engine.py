@@ -165,44 +165,47 @@ class BrowserEngine:
 
                 # Ghi đè thông số navigator.platform và phần cứng bằng Javascript để giả mạo thiết bị sâu hơn
                 self.context.add_init_script(
-                    f"Object.defineProperty(navigator, 'platform', {{get: () => '{device_profile['platform']}'}});\n"
-                    f"Object.defineProperty(navigator, 'hardwareConcurrency', {{get: () => {device_profile['hardware_concurrency']}}});\n"
-                    f"Object.defineProperty(navigator, 'deviceMemory', {{get: () => {device_profile['device_memory']}}});\n"
-                    f"Object.defineProperty(navigator, 'languages', {{get: () => ['{device_profile['locale']}', 'en-US', 'en']}});\n"
                     f"// --- CHỐNG NHẬN DIỆN BOT NÂNG CAO ---\n"
-                    f"// 1. Xóa hoàn toàn dấu vết Webdriver\n"
-                    f"Object.defineProperty(Object.getPrototypeOf(navigator), 'webdriver', {{ get: () => undefined, set: () => {{}} }});\n"
-                    f"// 2. Xóa các biến toàn cục do Playwright tạo ra\n"
+                    f"// Dùng Proxy để bọc Getter, giấu mã nguồn giả mạo khỏi hàm .toString() của Anti-Bot\n"
+                    f"const overrideGetter = (obj, prop, value) => {{\n"
+                    f"    const desc = Object.getOwnPropertyDescriptor(obj, prop);\n"
+                    f"    if (desc && desc.get) {{\n"
+                    f"        Object.defineProperty(obj, prop, {{\n"
+                    f"            get: new Proxy(desc.get, {{ apply: () => value }}),\n"
+                    f"            enumerable: desc.enumerable,\n"
+                    f"            configurable: desc.configurable\n"
+                    f"        }});\n"
+                    f"    }}\n"
+                    f"}};\n"
+                    f"overrideGetter(Navigator.prototype, 'platform', '{device_profile['platform']}');\n"
+                    f"overrideGetter(Navigator.prototype, 'hardwareConcurrency', {device_profile['hardware_concurrency']});\n"
+                    f"overrideGetter(Navigator.prototype, 'deviceMemory', {device_profile['device_memory']});\n"
+                    f"overrideGetter(Navigator.prototype, 'languages', ['{device_profile['locale']}', 'en-US', 'en']);\n"
+                    f"if (Object.getOwnPropertyDescriptor(Navigator.prototype, 'webdriver')) overrideGetter(Navigator.prototype, 'webdriver', false);\n"
+                    f"// Xóa các biến toàn cục do Playwright tạo ra\n"
                     f"delete window.__playwright;\n"
                     f"delete window.__pw_manual;\n"
                     f"delete window.__PW_outOfContext;\n"
-                    f"// 3. Giả mạo đối tượng Chrome (Rất nhiều hệ thống Anti-Bot check thuộc tính này)\n"
-                    f"if (!window.chrome) window.chrome = {{}};\n"
-                    f"window.chrome.app = {{ isInstalled: false, InstallState: {{ DISABLED: 'disabled', INSTALLED: 'installed', NOT_INSTALLED: 'not_installed' }}, RunningState: {{ CANNOT_RUN: 'cannot_run', READY_TO_RUN: 'ready_to_run', RUNNING: 'running' }} }};\n"
-                    f"window.chrome.runtime = {{ OnInstalledReason: {{ CHROME_UPDATE: 'chrome_update', INSTALL: 'install', SHARED_MODULE_UPDATE: 'shared_module_update', UPDATE: 'update' }}, OnRestartRequiredReason: {{ APP_UPDATE: 'app_update', OS_UPDATE: 'os_update', PERIODIC: 'periodic' }} }};\n"
-                    f"window.chrome.csi = function() {{ return {{ onloadT: Date.now(), startE: Date.now(), pageT: Date.now(), tran: 15 }}; }};\n"
-                    f"// 4. Giả mạo số lượng Plugins (Bot thường có 0 plugin)\n"
-                    f"Object.defineProperty(navigator, 'plugins', {{ get: () => [1, 2, 3, 4, 5] }});\n"
-                    f"Object.defineProperty(navigator, 'mimeTypes', {{ get: () => [1, 2, 3, 4] }});\n"
-                    f"// 5. Fake trạng thái Permission (Tránh trả về lỗi bị từ chối mặc định của trình duyệt tự động)\n"
-                    f"const originalQuery = window.navigator.permissions.query;\n"
-                    f"window.navigator.permissions.query = (parameters) => (parameters.name === 'notifications' ? Promise.resolve({{ state: Notification.permission }}) : originalQuery(parameters));\n"
                     f"// --- Chống nhận diện: Đổi mã băm Canvas Fingerprint thành Độc Nhất ---\n"
                     f"const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;\n"
-                    f"HTMLCanvasElement.prototype.toDataURL = function() {{\n"
-                    f"    const ctx = this.getContext('2d', {{willReadFrequently: true}});\n"
-                    f"    if (ctx) {{ ctx.fillStyle = 'rgba({device_profile['canvas_noise_r']}, {device_profile['canvas_noise_g']}, {device_profile['canvas_noise_b']}, 0.01)'; ctx.fillRect(0, 0, 1, 1); }}\n"
-                    f"    return originalToDataURL.apply(this, arguments);\n"
-                    f"}};\n"
+                    f"HTMLCanvasElement.prototype.toDataURL = new Proxy(originalToDataURL, {{\n"
+                    f"    apply: function(target, thisArg, args) {{\n"
+                    f"        try {{\n"
+                    f"            const ctx = thisArg.getContext('2d', {{willReadFrequently: true}});\n"
+                    f"            if (ctx) {{ ctx.fillStyle = 'rgba({device_profile['canvas_noise_r']}, {device_profile['canvas_noise_g']}, {device_profile['canvas_noise_b']}, 0.01)'; ctx.fillRect(0, 0, 1, 1); }}\n"
+                    f"        }} catch(e) {{}}\n"
+                    f"        return Reflect.apply(target, thisArg, args);\n"
+                    f"    }}\n"
+                    f"}});\n"
                     f"// --- Chống nhận diện: Trộn thông số WebGL Fingerprint ---\n"
-                    f"const getParameterProxy = new Proxy(WebGLRenderingContext.prototype.getParameter, {{\n"
+                    f"const originalGetParameter = WebGLRenderingContext.prototype.getParameter;\n"
+                    f"WebGLRenderingContext.prototype.getParameter = new Proxy(originalGetParameter, {{\n"
                     f"    apply: function(target, thisArg, args) {{\n"
                     f"        if (args[0] === 37445) return '{device_profile['webgl_vendor']}';\n"
                     f"        if (args[0] === 37446) return '{device_profile['webgl_renderer']}';\n"
                     f"        return Reflect.apply(target, thisArg, args);\n"
                     f"    }}\n"
                     f"}});\n"
-                    f"WebGLRenderingContext.prototype.getParameter = getParameterProxy;\n"
                 )
 
                 page = self.context.new_page()
@@ -400,12 +403,12 @@ class BrowserEngine:
                                 except Exception as ex:
                                     print(f"[!] Lỗi khi điền thông tin: {ex}")
                                     
-                            elif getattr(self, '_pending_action', None) == "auto_task":
+                            elif getattr(self, '_pending_action', None) == "auto_task_step":
                                 self._pending_action = None
                                 try:
                                     active_page = self.context.pages[-1]
                                     print("\n[*] ===========================================")
-                                    print("[*] BẮT ĐẦU CHUỖI NHIỆM VỤ LẤY MÁ TỰ ĐỘNG")
+                                    print("[*] BẮT ĐẦU CHUỖI NHIỆM VỤ LẤY MÃ (UPTO STEP)")
                                     
                                     steps = ["Lấy mã step 1", "Lấy mã step 2", "Lấy mã step 3"]
                                     task_completed = False
@@ -414,7 +417,6 @@ class BrowserEngine:
                                         if self._should_close or task_completed: break
                                         
                                         print(f"[*] Đang tìm nút: '{step}'...")
-                                        # Tìm nút chứa text tương ứng
                                         step_loc = active_page.locator(f"text='{step}'")
                                         
                                         button_found = False
@@ -430,12 +432,10 @@ class BrowserEngine:
                                         if button_found:
                                             print(f"[*] Đã nhấn '{step}'. Đang chờ hệ thống đếm ngược...")
                                             
-                                            # Vòng lặp chờ tối đa 120 giây cho mỗi step
                                             for _ in range(120):
                                                 if self._should_close: break
-                                                active_page.wait_for_timeout(1000) # Đợi 1 giây rồi kiểm tra lại
+                                                active_page.wait_for_timeout(1000)
                                                 
-                                                # 1. Kiểm tra xem có nút "Nhấn để tiếp tục" (Nút Hoàn Thành) chưa
                                                 finish_loc = active_page.locator("text='Nhấn để tiếp tục', text='Nhấn Để Tiếp Tục'")
                                                 is_finished = False
                                                 for i in range(finish_loc.count()):
@@ -451,7 +451,6 @@ class BrowserEngine:
                                                     task_completed = True
                                                     break
                                                     
-                                                # 2. Nếu chưa hoàn thành, kiểm tra xem có bắt nhấn Link bất kỳ không
                                                 link_loc = active_page.locator("text='Nhấn link bất kỳ để tiếp tục', text='Nhấn link bất kì để tiếp tục'")
                                                 needs_reload = False
                                                 for i in range(link_loc.count()):
@@ -464,12 +463,133 @@ class BrowserEngine:
                                                     active_page.reload()
                                                     active_page.wait_for_load_state("domcontentloaded")
                                                     active_page.wait_for_timeout(3000)
-                                                    break # Thoát vòng lặp chờ đếm ngược, chuyển sang xử lý step tiếp theo
+                                                    break
                                         else:
                                             print(f"[-] Không tìm thấy '{step}' trên màn hình. Có thể đã qua bước này.")
                                             
                                     if not task_completed and not self._should_close:
                                         print("[*] Đã chạy xong kịch bản quét nhưng chưa thấy nút hoàn tất cuối cùng.")
+                                    print("[*] ===========================================\n")
+                                        
+                                except Exception as ex:
+                                    print(f"[!] Lỗi trong quá trình tự động lấy mã upto step: {ex}")
+
+                            elif getattr(self, '_pending_action', None) == "auto_task":
+                                self._pending_action = None
+                                try:
+                                    active_page = self.context.pages[-1]
+                                    print("\n[*] ===========================================")
+                                    print("[*] BẮT ĐẦU CHUỖI NHIỆM VỤ LẤY MÁ TỰ ĐỘNG")
+                                    
+                                    task_completed = False
+                                    
+                                    # 1. Kiểm tra yêu cầu click bài viết bất kỳ trước khi tìm nút lấy mã
+                                    req_link_loc = active_page.locator("text=Vui lòng nhấn bài viết bất kỳ")
+                                    if req_link_loc.count() > 0 and req_link_loc.nth(0).is_visible():
+                                        print("[*] Phát hiện yêu cầu 'Vui lòng nhấn bài viết bất kỳ...'. Đang tìm và click vào 1 bài viết...")
+                                        
+                                        clicked = active_page.evaluate("""() => {
+                                            const links = Array.from(document.querySelectorAll('a[href]'));
+                                            // Lọc ra các link bài viết nội bộ thực sự (có text, không phải link rỗng hoặc nhảy neo)
+                                            const validLinks = links.filter(a => {
+                                                const rect = a.getBoundingClientRect();
+                                                return a.innerText.trim().length > 5 
+                                                    && rect.width > 0 && rect.height > 0 
+                                                    && a.href.startsWith(window.location.origin)
+                                                    && !a.href.includes('#');
+                                            });
+                                            if (validLinks.length > 0) {
+                                                const randomLink = validLinks[Math.floor(Math.random() * validLinks.length)];
+                                                randomLink.scrollIntoView({behavior: 'smooth', block: 'center'});
+                                                randomLink.click();
+                                                return true;
+                                            } else if (links.length > 0) {
+                                                links[Math.floor(Math.random() * links.length)].click();
+                                                return true;
+                                            }
+                                            return false;
+                                        }""")
+                                        
+                                        if clicked:
+                                            print("[*] Đã click vào một bài viết. Đang đợi trang mới tải...")
+                                            active_page.wait_for_load_state("domcontentloaded")
+                                            active_page.wait_for_timeout(3000)
+                                            
+                                            print("[*] Đang tự động cuộn xuống dưới cùng để tìm nút 'Lấy mã'...")
+                                            active_page.evaluate("window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})")
+                                            active_page.wait_for_timeout(2000)
+                                        else:
+                                            print("[-] Không tìm thấy bài viết hợp lệ nào để click, tiếp tục...")
+                                    
+                                    print("[*] Đang tìm nút 'Lấy mã'...")
+                                    # Tìm cụm từ chính xác (không phân biệt hoa thường do đặc tính Playwright locator)
+                                    lay_ma_loc = active_page.locator("text='Lấy mã'")
+                                    
+                                    button_found = False
+                                    if lay_ma_loc.count() > 0:
+                                        for i in range(lay_ma_loc.count()):
+                                            if lay_ma_loc.nth(i).is_visible():
+                                                lay_ma_loc.nth(i).scroll_into_view_if_needed()
+                                                active_page.wait_for_timeout(1000)
+                                                lay_ma_loc.nth(i).click(timeout=3000)
+                                                button_found = True
+                                                break
+                                                
+                                    if button_found:
+                                        print("[*] Đã nhấn nút 'Lấy mã'. Đang chờ hệ thống đếm ngược...")
+                                        
+                                        # Vòng lặp chờ tối đa 120 giây
+                                        for _ in range(120):
+                                            if self._should_close or task_completed: break
+                                            active_page.wait_for_timeout(1000) # Đợi 1 giây rồi kiểm tra lại
+                                            
+                                            touch_loc = active_page.locator("text=chạm vào màn hình để lấy mã")
+                                            if touch_loc.count() > 0 and touch_loc.nth(0).is_visible():
+                                                print("[*] Phát hiện yêu cầu 'chạm vào màn hình để lấy mã'!")
+                                                touch_loc.nth(0).scroll_into_view_if_needed()
+                                                active_page.wait_for_timeout(500)
+                                                touch_loc.nth(0).click(timeout=3000)
+                                                print("[*] Đã chạm vào màn hình. Đang kiểm tra yêu cầu cuộn trang...")
+                                                
+                                                # Đợi 2 giây để thông báo cuộn xuất hiện (nếu có)
+                                                active_page.wait_for_timeout(2000)
+                                                
+                                                scroll_up_loc = active_page.locator("text=vui lòng cuộn lên để tiếp tục lấy mã")
+                                                scroll_down_loc = active_page.locator("text=vui lòng cuộn xuống để tiếp tục lấy mã")
+                                                
+                                                if scroll_up_loc.count() > 0 and scroll_up_loc.nth(0).is_visible():
+                                                    print("[*] Web yêu cầu cuộn lên. Đang tự động cuộn lên trên cùng...")
+                                                    active_page.evaluate("window.scrollTo({top: 0, behavior: 'smooth'})")
+                                                elif scroll_down_loc.count() > 0 and scroll_down_loc.nth(0).is_visible():
+                                                    print("[*] Web yêu cầu cuộn xuống. Đang tự động cuộn xuống dưới cùng...")
+                                                    active_page.evaluate("window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})")
+                                                else:
+                                                    print("[*] Không thấy thông báo yêu cầu cuộn trang.")
+                                                    
+                                                print("[*] Đang chờ hộp thoại 'Xác thực và lấy mã' xuất hiện (tối đa 60s)...")
+                                                verify_found = False
+                                                for _ in range(60):
+                                                    if self._should_close: break
+                                                    active_page.wait_for_timeout(1000)
+                                                    verify_loc = active_page.locator("text=xác thực và lấy mã")
+                                                    if verify_loc.count() > 0 and verify_loc.nth(0).is_visible():
+                                                        print("[*] Đã xuất hiện nút 'Xác thực và lấy mã'!")
+                                                        print("[!!!] TIẾN TRÌNH TỰ ĐỘNG TẠM DỪNG: Vui lòng tự giải Captcha và nhấn xác thực bằng tay.")
+                                                        verify_loc.nth(0).scroll_into_view_if_needed()
+                                                        verify_found = True
+                                                        break
+                                                        
+                                                if not verify_found and not self._should_close:
+                                                    print("[-] Quá thời gian chờ nút xác thực. Vui lòng tự kiểm tra trang web.")
+                                                    
+                                                print("[*] QUY TRÌNH TỰ ĐỘNG ĐIỀU KHIỂN ĐÃ HOÀN TẤT!")
+                                                task_completed = True
+                                                break
+                                    else:
+                                        print("[-] Không tìm thấy nút 'Lấy mã' trên màn hình.")
+                                        
+                                    if not task_completed and not self._should_close:
+                                        print("[*] Đã chạy xong kịch bản quét nhưng chưa hoàn thành quy trình.")
                                     print("[*] ===========================================\n")
                                         
                                 except Exception as ex:
