@@ -29,6 +29,8 @@ class BrowserEngine:
         self._should_close = False
         self._pending_action = None
         self.network_callback = None
+        self.login_phone = ""
+        self.login_password = ""
 
     def set_network_callback(self, callback):
         self.network_callback = callback
@@ -173,6 +175,8 @@ class BrowserEngine:
                 self.overload_count = 0
                 self.bot_detection_count = 0
                 self.current_overload_prob = 0.0
+                self.auto_action_count = 0
+                self.session_start_time = time.time()
                 
                 def handle_network_response(response):
                     try:
@@ -214,11 +218,15 @@ class BrowserEngine:
                             
                             # Thuật toán phân tích tỷ lệ bị Web nghi ngờ là Bot / Spam
                             base_bot = (self.bot_detection_count / self.total_requests) * 100
-                            predicted_bot = base_bot * 1.5 + random.uniform(0.5, 2.0) if base_bot > 0 else random.uniform(0.0, 1.0)
+                            # Phân tích tốc độ ép lệnh của phần mềm (Nếu nhồi > 2 lệnh / giây liên tục thì sẽ bị lộ là Bot)
+                            action_rate = self.auto_action_count / max(1, time.time() - self.session_start_time)
+                            spam_penalty = (action_rate - 2) * 15 if action_rate > 2 else 0
+                            
+                            predicted_bot = base_bot * 1.5 + random.uniform(0.5, 2.0) + max(0, spam_penalty) if base_bot > 0 else random.uniform(0.0, 1.0) + max(0, spam_penalty)
                             
                             current_cookies = self.context.cookies()
                             if self.network_callback:
-                                self.network_callback(len(current_cookies), predicted_prob, predicted_overload, predicted_bot)
+                                self.network_callback(len(current_cookies), predicted_prob, predicted_overload, predicted_bot, self.auto_action_count)
                     except Exception:
                         pass
 
@@ -355,16 +363,19 @@ class BrowserEngine:
                         
                         # Click vào ô tìm kiếm để mô phỏng người thật
                         page.click(search_selector)
+                        self.auto_action_count += 1
                         page.wait_for_timeout(random.randint(330, 1000))
                         
                         # Sử dụng hàm type thay vì fill để gõ từng chữ cái với khoảng trễ delay (như người gõ phím)
                         print("[*] Đang gõ từ khóa: moneytask.top")
                         page.type(search_selector, "moneytask.top", delay=random.randint(100, 260))
+                        self.auto_action_count += 13 # 13 kí tự
                         
                         page.wait_for_timeout(random.randint(530, 1000))
                         
                         print("[*] Đang nhấn Enter...")
                         page.press(search_selector, "Enter")
+                        self.auto_action_count += 1
                         
                         page.wait_for_load_state("domcontentloaded")
                         print("[*] Đã tự động hoá thành công quy trình tìm kiếm!")
@@ -385,6 +396,7 @@ class BrowserEngine:
                                 checkbox.hover()
                                 page.wait_for_timeout(random.randint(400, 900))
                                 checkbox.click(delay=random.randint(80, 200))
+                                self.auto_action_count += 2
                                 print("[*] Đã tự động click vào ô 'Tôi không phải là người máy' (như người thật).")
                                 page.wait_for_timeout(random.randint(2000, 3300))
                                 
@@ -429,6 +441,7 @@ class BrowserEngine:
                                     cf_checkbox.hover()
                                     active_p.wait_for_timeout(random.randint(500, 1000))
                                     cf_checkbox.click(delay=random.randint(80, 200))
+                                    self.auto_action_count += 2
                                     active_p.wait_for_timeout(4000)
                             except Exception: pass
                             # -----------------------------------------------------------
@@ -440,8 +453,18 @@ class BrowserEngine:
                                     active_page = self.context.pages[-1]
                                     if "moneytask.top" in active_page.url:
                                         print("[*] Đang thực thi lệnh tự động điền tài khoản...")
+                                        
+                                        # Lấy tài khoản từ bộ nhớ, gán vào Object (Dictionary) để truyền an toàn xuống JavaScript
+                                        login_data = {
+                                            "phone": getattr(self, 'login_phone', ''),
+                                            "password": getattr(self, 'login_password', '')
+                                        }
+                                        
                                         # Dùng JavaScript để điền dữ liệu (vượt qua cơ chế chống Bot của React/Vue)
-                                        active_page.evaluate("""() => {
+                                        active_page.evaluate("""(data) => {
+                                            const phone = data.phone;
+                                            const password = data.password;
+                                            
                                             const inputs = Array.from(document.querySelectorAll('input'));
                                             const passInput = inputs.find(i => i.type === 'password');
                                             const textInputs = inputs.filter(i => i.type === 'text' || i.type === 'tel' || i.name.includes('phone'));
@@ -456,14 +479,14 @@ class BrowserEngine:
                                             // Thủ thuật vượt qua cơ chế State của React/Vue để trang web ghi nhận dữ liệu thật
                                             const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
                                             
-                                            if (userInput) {
-                                                nativeInputValueSetter.call(userInput, '0855361500');
+                                            if (userInput && phone) {
+                                                nativeInputValueSetter.call(userInput, phone);
                                                 userInput.dispatchEvent(new Event('input', { bubbles: true }));
                                                 userInput.dispatchEvent(new Event('change', { bubbles: true }));
                                                 userInput.blur(); // Bỏ focus khỏi ô nhập để làm mất gợi ý
                                             }
-                                            if (passInput) {
-                                                nativeInputValueSetter.call(passInput, 'Nam523181@');
+                                            if (passInput && password) {
+                                                nativeInputValueSetter.call(passInput, password);
                                                 passInput.dispatchEvent(new Event('input', { bubbles: true }));
                                                 passInput.dispatchEvent(new Event('change', { bubbles: true }));
                                                 passInput.blur(); // Bỏ focus khỏi ô nhập để làm mất gợi ý
@@ -471,7 +494,8 @@ class BrowserEngine:
                                             
                                             // Giả lập thao tác "click vào khoảng trống" trên màn hình
                                             document.body.click();
-                                        }""")
+                                        }""", login_data)
+                                        self.auto_action_count += 5 # Gọi JS, mô phỏng Blur/Input
                                         print("[*] Đã điền xong số điện thoại và mật khẩu!")
                                         
                                         # Đợi 0.5s để trang web nhận diện sự thay đổi dữ liệu của các ô input
@@ -481,6 +505,7 @@ class BrowserEngine:
                                         try:
                                             btn_selectors = "button[type='submit'], button:has-text('Đăng nhập'), button:has-text('Đăng Nhập'), button:has-text('Login'), input[type='submit']"
                                             active_page.click(btn_selectors, timeout=3000)
+                                            self.auto_action_count += 1
                                             print("[*] Đã nhấn nút Đăng nhập. Hoàn tất lệnh tự động!")
                                         except Exception:
                                             print("[!] Không tìm thấy nút Đăng nhập tự động. Vui lòng nhấn bằng tay.")
@@ -506,6 +531,7 @@ class BrowserEngine:
                                         
                                         # 1. Tự động cuộn trang để kích hoạt nút (nhiều web dùng Lazy-load, phải cuộn mới hiện DOM)
                                         active_page.evaluate("window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})")
+                                        self.auto_action_count += 1
                                         active_page.wait_for_timeout(2000)
                                         
                                         button_found = False
@@ -526,6 +552,7 @@ class BrowserEngine:
                                                                 active_page.wait_for_timeout(delay)
                                                                 
                                                             step_loc.nth(i).click(timeout=3000)
+                                                            self.auto_action_count += 1
                                                             button_found = True
                                                             break
                                                     except Exception: pass
@@ -552,6 +579,7 @@ class BrowserEngine:
                                                             active_page.wait_for_timeout(delay)
                                                             
                                                         finish_loc.nth(i).click(timeout=3000)
+                                                        self.auto_action_count += 1
                                                         is_finished = True
                                                         break
                                                 if is_finished:
@@ -569,6 +597,7 @@ class BrowserEngine:
                                                 
                                                 if needs_reload:
                                                     active_page.reload()
+                                                    self.auto_action_count += 1
                                                     active_page.wait_for_load_state("domcontentloaded")
                                                     active_page.wait_for_timeout(3000)
                                                     break
@@ -593,12 +622,14 @@ class BrowserEngine:
                                     if active_page.locator(error_loc_str).count() > 0:
                                         print("[*] Đang tự động Tải lại trang (F5) để ép Server kết nối lại...")
                                         active_page.reload(wait_until="domcontentloaded", timeout=15000)
+                                        self.auto_action_count += 1
                                         active_page.wait_for_timeout(3000)
                                         
                                         # Kiểm tra lại xem F5 có giải quyết được không
                                         if active_page.locator(error_loc_str).count() > 0:
                                             print("[*] F5 thất bại. Đang tự động lùi lại (Back) trang trước đó...")
                                             active_page.go_back(wait_until="domcontentloaded", timeout=15000)
+                                            self.auto_action_count += 1
                                             print("[*] Đã lùi trang. Bạn hãy thử bấm 'Xác thực' lại một lần nữa!")
                                             print("[*] (Lưu ý: Nếu vẫn lỗi thì 100% Server web nhiệm vụ đã sập, vui lòng bỏ qua web này).")
                                         else:
@@ -645,12 +676,14 @@ class BrowserEngine:
                                         }""")
                                         
                                         if clicked:
+                                            self.auto_action_count += 1
                                             print("[*] Đã click vào một bài viết. Đang đợi trang mới tải...")
                                             active_page.wait_for_load_state("domcontentloaded")
                                             active_page.wait_for_timeout(3000)
                                             
                                             print("[*] Đang tự động cuộn xuống dưới cùng để tìm nút 'Lấy mã'...")
                                             active_page.evaluate("window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})")
+                                            self.auto_action_count += 1
                                             active_page.wait_for_timeout(2000)
                                         else:
                                             print("[-] Không tìm thấy bài viết hợp lệ nào để click, tiếp tục...")
@@ -672,6 +705,7 @@ class BrowserEngine:
                                                     active_page.wait_for_timeout(delay)
                                                     
                                                 lay_ma_loc.nth(i).click(timeout=3000)
+                                                self.auto_action_count += 1
                                                 button_found = True
                                                 break
                                                 
@@ -695,6 +729,7 @@ class BrowserEngine:
                                                     active_page.wait_for_timeout(delay)
                                                     
                                                 touch_loc.nth(0).click(timeout=3000)
+                                                self.auto_action_count += 1
                                                 print("[*] Đã chạm vào màn hình. Đang kiểm tra yêu cầu cuộn trang...")
                                                 
                                                 # Đợi 2 giây để thông báo cuộn xuất hiện (nếu có)
@@ -706,9 +741,11 @@ class BrowserEngine:
                                                 if scroll_up_loc.count() > 0 and scroll_up_loc.nth(0).is_visible():
                                                     print("[*] Web yêu cầu cuộn lên. Đang tự động cuộn lên trên cùng...")
                                                     active_page.evaluate("window.scrollTo({top: 0, behavior: 'smooth'})")
+                                                    self.auto_action_count += 1
                                                 elif scroll_down_loc.count() > 0 and scroll_down_loc.nth(0).is_visible():
                                                     print("[*] Web yêu cầu cuộn xuống. Đang tự động cuộn xuống dưới cùng...")
                                                     active_page.evaluate("window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})")
+                                                    self.auto_action_count += 1
                                                 else:
                                                     print("[*] Không thấy thông báo yêu cầu cuộn trang.")
                                                     

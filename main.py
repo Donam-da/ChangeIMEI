@@ -6,6 +6,7 @@ import tkinter as tk
 import shutil
 import tempfile
 import uuid
+import json
 from tkinter import messagebox
 from tkinter import ttk
 import urllib.request
@@ -21,6 +22,8 @@ class AntiDetectGUI:
         
         self.engine = BrowserEngine()
         self.engine.set_network_callback(self.update_network_analysis)
+        
+        self.credentials_file = os.path.join(os.path.dirname(__file__), 'data', 'credentials.json')
         
         # Thiết kế các thành phần Giao diện (UI)
         tk.Label(root, text="CÔNG CỤ ANTI-DETECT: CHANGE IMEI", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=10)
@@ -85,6 +88,7 @@ class AntiDetectGUI:
                                         command=self.trigger_auto_login, bg="#263238", fg="#00bcd4", width=18,
                                         state=tk.DISABLED, **btn_style)
         self.btn_auto_login.grid(row=0, column=2, padx=4, pady=4)
+        self.btn_auto_login.bind("<Double-1>", self.show_credentials_dialog)
 
         self.btn_auto_task_step = tk.Button(btn_frame, text="🤖 Làm nhiệm vụ Upto Step", 
                                         command=self.trigger_auto_task_step, bg="#263238", fg="#00bcd4", width=18,
@@ -158,12 +162,12 @@ class AntiDetectGUI:
         # Khởi động luồng theo dõi IP liên tục
         self.start_ip_monitor()
 
-    def update_network_analysis(self, cookie_count, prob_404, prob_overload=0.0, prob_bot=0.0):
+    def update_network_analysis(self, cookie_count, prob_404, prob_overload=0.0, prob_bot=0.0, auto_cmds=0):
         def _update():
             # Tự động đổi màu cảnh báo nếu bất kỳ thông số rủi ro nào vượt ngưỡng
             max_risk = max(prob_404, prob_overload, prob_bot)
             color = "#00e676" if max_risk <= 5 else "#ffb74d" if max_risk <= 20 else "#ff5252"
-            self.analysis_label.config(text=f"🔍 Cookies: {cookie_count} | ⚠️ 404: {prob_404:.1f}% | 🐌 Server: {prob_overload:.1f}% | 🤖 Bot/Spam: {prob_bot:.1f}%", fg=color)
+            self.analysis_label.config(text=f"🔍 Cookies: {cookie_count} | ⚠️ 404: {prob_404:.1f}% | 🐌 Server: {prob_overload:.1f}% | 🤖 Bot: {prob_bot:.1f}% | ⚙️ Lệnh Auto: {auto_cmds}", fg=color)
         self.root.after(0, _update)
 
     def apply_scale(self, event=None):
@@ -212,6 +216,89 @@ class AntiDetectGUI:
 
         for child in widget.winfo_children():
             self._scale_widget_tree(child, f)
+
+    def load_credentials(self):
+        try:
+            if os.path.exists(self.credentials_file):
+                with open(self.credentials_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return {"phone": "", "password": ""}
+
+    def save_credentials(self, phone, password):
+        try:
+            os.makedirs(os.path.dirname(self.credentials_file), exist_ok=True)
+            with open(self.credentials_file, 'w', encoding='utf-8') as f:
+                json.dump({"phone": phone, "password": password}, f)
+        except Exception as e:
+            print(f"Lỗi lưu tài khoản: {e}")
+
+    def show_credentials_dialog(self, event=None):
+        if hasattr(self, 'cred_dialog') and self.cred_dialog.winfo_exists():
+            self.cred_dialog.lift()
+            return
+            
+        self.cred_dialog = tk.Toplevel(self.root)
+        self.cred_dialog.title("Cài đặt Tài Khoản")
+        
+        # Tính toán để hộp thoại luôn nằm ngay giữa phần mềm, dù phần mềm đang bị kéo đi đâu
+        dialog_w = int(300 * self.current_scale)
+        dialog_h = int(230 * self.current_scale)
+        self.root.update_idletasks()
+        main_x = self.root.winfo_x()
+        main_y = self.root.winfo_y()
+        main_w = self.root.winfo_width()
+        main_h = self.root.winfo_height()
+        
+        pos_x = main_x + (main_w // 2) - (dialog_w // 2)
+        pos_y = main_y + (main_h // 2) - (dialog_h // 2)
+        self.cred_dialog.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
+        
+        self.cred_dialog.configure(bg="#121212")
+        self.cred_dialog.transient(self.root)
+        self.cred_dialog.grab_set()
+        
+        creds = self.load_credentials()
+        
+        tk.Label(self.cred_dialog, text="Số điện thoại:", font=("Arial", 9), fg="#e0e0e0", bg="#121212").pack(pady=(15, 2))
+        phone_entry = tk.Entry(self.cred_dialog, font=("Arial", 10), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT)
+        phone_entry.pack(pady=2, ipady=3, padx=20, fill=tk.X)
+        phone_entry.insert(0, creds.get("phone", ""))
+        
+        tk.Label(self.cred_dialog, text="Mật khẩu:", font=("Arial", 9), fg="#e0e0e0", bg="#121212").pack(pady=(10, 2))
+        
+        pwd_frame = tk.Frame(self.cred_dialog, bg="#121212")
+        pwd_frame.pack(pady=2, padx=20, fill=tk.X)
+        
+        pwd_entry = tk.Entry(pwd_frame, font=("Arial", 10), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT, show="*")
+        pwd_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=3)
+        pwd_entry.insert(0, creds.get("password", ""))
+        
+        def toggle_pwd():
+            if pwd_entry.cget('show') == '':
+                pwd_entry.config(show='*')
+                btn_toggle_pwd.config(text="👁️")
+            else:
+                pwd_entry.config(show='')
+                btn_toggle_pwd.config(text="🙈")
+                
+        btn_toggle_pwd = tk.Button(pwd_frame, text="👁️", bg="#1e1e1e", fg="#00ffff", relief=tk.FLAT, font=("Arial", 10), width=3, command=toggle_pwd, activebackground="#333333", activeforeground="#00ffff")
+        btn_toggle_pwd.pack(side=tk.LEFT, padx=(5, 0), ipady=1)
+        
+        def save():
+            phone = phone_entry.get().strip()
+            pwd = pwd_entry.get().strip()
+            if not phone or not pwd:
+                messagebox.showwarning("Lỗi", "Vui lòng nhập đầy đủ Số điện thoại và Mật khẩu!", parent=self.cred_dialog)
+                return
+            self.save_credentials(phone, pwd)
+            self.cred_dialog.destroy()
+            messagebox.showinfo("Thành công", "Đã lưu thông tin tài khoản!", parent=self.root)
+            
+        tk.Button(self.cred_dialog, text="💾 Lưu và Đóng", command=save, bg="#00bcd4", fg="black", font=("Arial", 9, "bold"), relief=tk.FLAT, activebackground="#00e5ff").pack(pady=15, ipadx=20)
+        
+        self._scale_widget_tree(self.cred_dialog, self.current_scale)
 
     def start_ip_monitor(self):
         """Chạy luồng ngầm liên tục kiểm tra IP mạng của máy mỗi 2 giây"""
@@ -499,7 +586,14 @@ class AntiDetectGUI:
 
     def trigger_auto_login(self):
         """Gửi lệnh điền tài khoản đến luồng duyệt web"""
+        creds = self.load_credentials()
+        if not creds.get("phone") or not creds.get("password"):
+            self.show_credentials_dialog()
+            return
+            
         if self.engine.playwright is not None:
+            self.engine.login_phone = creds.get("phone")
+            self.engine.login_password = creds.get("password")
             self.engine._pending_action = "fill_login"
             self.status_label.config(text="Trạng thái: Đang tự động điền tài khoản...", fg="#00bcd4")
             self.root.after(2000, lambda: self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="#00bcd4"))
