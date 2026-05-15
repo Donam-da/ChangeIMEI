@@ -27,6 +27,7 @@ class BrowserEngine:
         self.browser = None
         self.context = None
         self._should_close = False
+        self._pending_action = None
 
     def _load_proxies(self):
         """Đọc danh sách proxy từ file txt"""
@@ -343,9 +344,140 @@ class BrowserEngine:
                     # Giữ tiến trình chạy cho đến khi tất cả các tab bị đóng hoặc trình duyệt tắt
                     while self.context and self.context.pages and not self._should_close:
                         try:
-                            self.context.pages[0].wait_for_event("close", timeout=1000)
+                            # Kiểm tra xem có lệnh từ giao diện gửi xuống không
+                            if getattr(self, '_pending_action', None) == "fill_login":
+                                self._pending_action = None
+                                try:
+                                    active_page = self.context.pages[-1]
+                                    if "moneytask.top" in active_page.url:
+                                        print("[*] Đang thực thi lệnh tự động điền tài khoản...")
+                                        # Dùng JavaScript để điền dữ liệu (vượt qua cơ chế chống Bot của React/Vue)
+                                        active_page.evaluate("""() => {
+                                            const inputs = Array.from(document.querySelectorAll('input'));
+                                            const passInput = inputs.find(i => i.type === 'password');
+                                            const textInputs = inputs.filter(i => i.type === 'text' || i.type === 'tel' || i.name.includes('phone'));
+                                            
+                                            let userInput = null;
+                                            if (passInput) {
+                                                // Tìm ô tài khoản nằm trước ô mật khẩu trong cấu trúc HTML
+                                                userInput = textInputs.reverse().find(i => i.compareDocumentPosition(passInput) & Node.DOCUMENT_POSITION_FOLLOWING);
+                                            }
+                                            if (!userInput && textInputs.length > 0) userInput = textInputs[0];
+                                            
+                                            // Thủ thuật vượt qua cơ chế State của React/Vue để trang web ghi nhận dữ liệu thật
+                                            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                                            
+                                            if (userInput) {
+                                                nativeInputValueSetter.call(userInput, '0855361500');
+                                                userInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                                userInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                                userInput.blur(); // Bỏ focus khỏi ô nhập để làm mất gợi ý
+                                            }
+                                            if (passInput) {
+                                                nativeInputValueSetter.call(passInput, 'Nam523181@');
+                                                passInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                                passInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                                passInput.blur(); // Bỏ focus khỏi ô nhập để làm mất gợi ý
+                                            }
+                                            
+                                            // Giả lập thao tác "click vào khoảng trống" trên màn hình
+                                            document.body.click();
+                                        }""")
+                                        print("[*] Đã điền xong số điện thoại và mật khẩu!")
+                                        
+                                        # Đợi 0.5s để trang web nhận diện sự thay đổi dữ liệu của các ô input
+                                        active_page.wait_for_timeout(500)
+                                        
+                                        print("[*] Đang tự động tìm và nhấn nút Đăng nhập...")
+                                        try:
+                                            btn_selectors = "button[type='submit'], button:has-text('Đăng nhập'), button:has-text('Đăng Nhập'), button:has-text('Login'), input[type='submit']"
+                                            active_page.click(btn_selectors, timeout=3000)
+                                            print("[*] Đã nhấn nút Đăng nhập. Hoàn tất lệnh tự động!")
+                                        except Exception:
+                                            print("[!] Không tìm thấy nút Đăng nhập tự động. Vui lòng nhấn bằng tay.")
+                                    else:
+                                        print("[!] Bạn chưa mở trang moneytask.top. Vui lòng vào trang đăng nhập trước khi bấm.")
+                                except Exception as ex:
+                                    print(f"[!] Lỗi khi điền thông tin: {ex}")
+                                    
+                            elif getattr(self, '_pending_action', None) == "auto_task":
+                                self._pending_action = None
+                                try:
+                                    active_page = self.context.pages[-1]
+                                    print("\n[*] ===========================================")
+                                    print("[*] BẮT ĐẦU CHUỖI NHIỆM VỤ LẤY MÁ TỰ ĐỘNG")
+                                    
+                                    steps = ["Lấy mã step 1", "Lấy mã step 2", "Lấy mã step 3"]
+                                    task_completed = False
+                                    
+                                    for step in steps:
+                                        if self._should_close or task_completed: break
+                                        
+                                        print(f"[*] Đang tìm nút: '{step}'...")
+                                        # Tìm nút chứa text tương ứng
+                                        step_loc = active_page.locator(f"text='{step}'")
+                                        
+                                        button_found = False
+                                        if step_loc.count() > 0:
+                                            for i in range(step_loc.count()):
+                                                if step_loc.nth(i).is_visible():
+                                                    step_loc.nth(i).scroll_into_view_if_needed()
+                                                    active_page.wait_for_timeout(1000)
+                                                    step_loc.nth(i).click(timeout=3000)
+                                                    button_found = True
+                                                    break
+                                                    
+                                        if button_found:
+                                            print(f"[*] Đã nhấn '{step}'. Đang chờ hệ thống đếm ngược...")
+                                            
+                                            # Vòng lặp chờ tối đa 120 giây cho mỗi step
+                                            for _ in range(120):
+                                                if self._should_close: break
+                                                active_page.wait_for_timeout(1000) # Đợi 1 giây rồi kiểm tra lại
+                                                
+                                                # 1. Kiểm tra xem có nút "Nhấn để tiếp tục" (Nút Hoàn Thành) chưa
+                                                finish_loc = active_page.locator("text='Nhấn để tiếp tục', text='Nhấn Để Tiếp Tục'")
+                                                is_finished = False
+                                                for i in range(finish_loc.count()):
+                                                    if finish_loc.nth(i).is_visible():
+                                                        print("[*] Phá hiện nút 'Nhấn để tiếp tục' (Hoàn thành)!")
+                                                        finish_loc.nth(i).scroll_into_view_if_needed()
+                                                        active_page.wait_for_timeout(500)
+                                                        finish_loc.nth(i).click(timeout=3000)
+                                                        is_finished = True
+                                                        break
+                                                if is_finished:
+                                                    print("[*] QUY TRÌNH LẤY MÃ ĐÃ HOÀN TẤT!")
+                                                    task_completed = True
+                                                    break
+                                                    
+                                                # 2. Nếu chưa hoàn thành, kiểm tra xem có bắt nhấn Link bất kỳ không
+                                                link_loc = active_page.locator("text='Nhấn link bất kỳ để tiếp tục', text='Nhấn link bất kì để tiếp tục'")
+                                                needs_reload = False
+                                                for i in range(link_loc.count()):
+                                                    if link_loc.nth(i).is_visible():
+                                                        print(f"[!] Web yêu cầu click link. Đang tự động Tải lại trang (F5) để sang {steps[steps.index(step)+1] if step != steps[-1] else 'bước tiếp'}...")
+                                                        needs_reload = True
+                                                        break
+                                                
+                                                if needs_reload:
+                                                    active_page.reload()
+                                                    active_page.wait_for_load_state("domcontentloaded")
+                                                    active_page.wait_for_timeout(3000)
+                                                    break # Thoát vòng lặp chờ đếm ngược, chuyển sang xử lý step tiếp theo
+                                        else:
+                                            print(f"[-] Không tìm thấy '{step}' trên màn hình. Có thể đã qua bước này.")
+                                            
+                                    if not task_completed and not self._should_close:
+                                        print("[*] Đã chạy xong kịch bản quét nhưng chưa thấy nút hoàn tất cuối cùng.")
+                                    print("[*] ===========================================\n")
+                                        
+                                except Exception as ex:
+                                    print(f"[!] Lỗi trong quá trình tự động lấy mã: {ex}")
+
+                            self.context.pages[0].wait_for_event("close", timeout=500)
                         except PlaywrightTimeoutError:
-                            pass # Hết thời gian chờ 1s, lặp lại để tiếp tục kiểm tra cờ _should_close
+                            pass # Hết thời gian chờ 0.5s, lặp lại để tiếp tục kiểm tra cờ _should_close và _pending_action
                         except Exception:
                             pass
                 except Exception:

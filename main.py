@@ -13,7 +13,7 @@ class AntiDetectGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("ChangeIMEI Anti-Detect Browser")
-        self.root.geometry("600x450")
+        self.root.geometry("600x535")
         
         self.engine = BrowserEngine()
         
@@ -33,6 +33,16 @@ class AntiDetectGUI:
         self.btn_proxy = tk.Button(root, text="🌐 Mở Trình Duyệt (Có Dùng Proxy)", 
                                    command=self.launch_proxy, bg="#dff0d8", font=("Arial", 10), width=35)
         self.btn_proxy.pack(pady=5)
+
+        self.btn_auto_login = tk.Button(root, text="🔑 Tự Động Điền Tài Khoản (Login)", 
+                                        command=self.trigger_auto_login, bg="#fcf8e3", font=("Arial", 10, "bold"), width=35,
+                                        state=tk.DISABLED)
+        self.btn_auto_login.pack(pady=5)
+
+        self.btn_auto_task = tk.Button(root, text="🤖 Tự Động Làm Nhiệm Vụ (Lấy Mã)", 
+                                        command=self.trigger_auto_task, bg="#e8dff5", font=("Arial", 10, "bold"), width=35,
+                                        state=tk.DISABLED)
+        self.btn_auto_task.pack(pady=5)
 
         self.btn_delete = tk.Button(root, text="🗑️ Xóa Session & Dọn Dẹp",
                                     command=self.delete_session, bg="#f2dede", font=("Arial", 10, "bold"), width=35,
@@ -136,6 +146,7 @@ class AntiDetectGUI:
             self.btn_ip_that.config(state=tk.NORMAL)
             self.btn_proxy.config(state=tk.NORMAL)
             self.btn_delete.config(state=tk.DISABLED)
+            self.btn_auto_task.config(state=tk.DISABLED)
             self.status_label.config(text=f"Trạng thái: Sẵn sàng (Thiết bị {self.profiles_used}/5)", fg="green")
         else:
             self.current_profile = None
@@ -253,9 +264,26 @@ class AntiDetectGUI:
             self.btn_ip_that.config(state=tk.DISABLED)
             self.btn_proxy.config(state=tk.DISABLED)
             self.btn_delete.config(state=tk.NORMAL)
+            self.btn_auto_login.config(state=tk.NORMAL)
+            self.btn_auto_task.config(state=tk.NORMAL)
             self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="blue")
         else:
-            pass # Không tự động mở lại nút chạy, bắt buộc phải qua bước Xóa Session để dọn dẹp chuyển qua profile mới
+            self.btn_auto_login.config(state=tk.DISABLED)
+            self.btn_auto_task.config(state=tk.DISABLED)
+
+    def trigger_auto_login(self):
+        """Gửi lệnh điền tài khoản đến luồng duyệt web"""
+        if self.engine.playwright is not None:
+            self.engine._pending_action = "fill_login"
+            self.status_label.config(text="Trạng thái: Đang tự động điền tài khoản...", fg="blue")
+            self.root.after(2000, lambda: self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Xóa' để dọn dẹp.", fg="blue"))
+            
+    def trigger_auto_task(self):
+        """Gửi lệnh thực hiện nhiệm vụ lấy mã đến luồng duyệt web"""
+        if self.engine.playwright is not None:
+            self.engine._pending_action = "auto_task"
+            self.status_label.config(text="Trạng thái: Đang chạy tiến trình lấy mã tự động...", fg="purple")
+            self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Đang theo dõi tiến trình lấy mã...", fg="purple"))
 
     def run_browser_thread(self, target_url, use_proxy):
         """Chạy việc mở trình duyệt trong một thread riêng để không làm treo giao diện."""
