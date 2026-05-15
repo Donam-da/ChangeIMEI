@@ -210,6 +210,11 @@ class BrowserEngine:
 
                 page = self.context.new_page()
                 
+                # --- TĂNG SỨC CHỊU ĐỰNG MẠNG (NETWORK RESILIENCE) ---
+                # Giúp trình duyệt kiên nhẫn chờ đợi khi mạng lag hoặc rớt tạm thời mà không đánh hỏng nhiệm vụ
+                self.context.set_default_timeout(60000) # Chờ tối đa 60s cho các thao tác (tìm nút, click, gõ)
+                self.context.set_default_navigation_timeout(90000) # Chờ tối đa 90s khi tải trang
+                
                 # ĐÃ TẮT apply_stealth(page): Tránh xung đột với khối add_init_script bên trên. Việc ghi đè thông số 2 lần sẽ khiến Google phát hiện ra Bot.
                 
                 # --- LỚP BẢO VỆ 1: CHẶN POPUP MỚI TẠI CẤP ĐỘ LÕI TRÌNH DUYỆT (PLAYWRIGHT) ---
@@ -264,7 +269,7 @@ class BrowserEngine:
                     # 2. Truy cập Google theo kịch bản tùy chỉnh thay vì truy cập thẳng link đích
                     print("[*] Truy cập Google...")
                     # Sử dụng domcontentloaded thay vì chờ load xong tất cả ảnh/mạng để giảm tỷ lệ bị Google nghi ngờ
-                    page.goto("https://www.google.com/", wait_until="domcontentloaded", timeout=45000)
+                    page.goto("https://www.google.com/", wait_until="domcontentloaded", timeout=90000)
                     page.wait_for_load_state("domcontentloaded")
                     page.wait_for_timeout(random.randint(650, 1650))
                     
@@ -327,7 +332,7 @@ class BrowserEngine:
                         print(f"[!] Lỗi trong quá trình tự động hóa tác vụ: {ex}")
                         
                 except PlaywrightTimeoutError:
-                    print("[!!!] CẢNH BÁO: Mạng quá chậm hoặc Proxy đã chết (Timeout 45s).")
+                    print("[!!!] CẢNH BÁO: Mạng quá chậm hoặc rớt kết nối (Timeout 90s).")
                     print("[!!!] Vui lòng kiểm tra lại chất lượng Proxy (Ping cao hoặc mất kết nối)!")
                     return
                 except PlaywrightError as e:

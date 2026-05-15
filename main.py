@@ -5,6 +5,7 @@ import random
 import tkinter as tk
 import shutil
 import tempfile
+import uuid
 from tkinter import messagebox
 from tkinter import ttk
 import urllib.request
@@ -30,14 +31,23 @@ class AntiDetectGUI:
         net_frame = tk.Frame(root, bg="#121212")
         net_frame.pack(pady=(0, 10))
 
+        mac_num = hex(uuid.getnode()).replace('0x', '').zfill(12)
+        mac_address = ':'.join(mac_num[i: i + 2] for i in range(0, 12, 2)).upper()
+        
+        self.mac_label = tk.Label(net_frame, text=f"MAC: {mac_address}", font=("Arial", 10, "bold"), fg="#b388ff", bg="#121212")
+        self.mac_label.grid(row=0, column=0, padx=8)
+
         self.ip_label = tk.Label(net_frame, text="🌐 IP: Đang kiểm...", font=("Arial", 10, "bold"), fg="#00e676", bg="#121212")
-        self.ip_label.grid(row=0, column=0, padx=8)
+        self.ip_label.grid(row=0, column=1, padx=8)
 
         self.ping_label = tk.Label(net_frame, text="⚡ Ping: ...", font=("Arial", 10, "bold"), fg="#ffb74d", bg="#121212")
-        self.ping_label.grid(row=0, column=1, padx=8)
+        self.ping_label.grid(row=0, column=2, padx=8)
 
         self.speed_label = tk.Label(net_frame, text="⬇️ Speed: ...", font=("Arial", 10, "bold"), fg="#4dd0e1", bg="#121212")
-        self.speed_label.grid(row=0, column=2, padx=8)
+        self.speed_label.grid(row=0, column=3, padx=8)
+
+        self.data_label = tk.Label(net_frame, text="Data: 0 MB", font=("Arial", 10, "bold"), fg="#f48fb1", bg="#121212")
+        self.data_label.grid(row=0, column=4, padx=8)
 
         tk.Label(root, text="Nhập link URL muốn mở:", font=("Arial", 10), fg="#e0e0e0", bg="#121212").pack()
         
@@ -151,13 +161,16 @@ class AntiDetectGUI:
                 except Exception:
                     psutil = None
                     
-            last_net = psutil.net_io_counters() if psutil else None
+            initial_net = psutil.net_io_counters() if psutil else None
+            last_net = initial_net
             last_time = time.time()
 
-            def update_ui(i, l, s, err=False):
+            def update_ui(i, l, s, d, err=False):
                 self.ip_label.config(text=f"🌐 IP: {i}", fg="#ff5252" if err else "#00e676")
                 self.ping_label.config(text=f"⚡ Ping: {l}", fg="#ff5252" if err else "#ffb74d")
                 self.speed_label.config(text=f"⬇️ Speed: {s}")
+                if d != "N/A":
+                    self.data_label.config(text=f"Data: {d}")
 
             while True:
                 try:
@@ -178,6 +191,7 @@ class AntiDetectGUI:
                         ip = response.read().decode('utf-8').strip()
                         
                         speed_text = "0 KB/s"
+                        data_text = "0 MB"
                         if psutil:
                             current_net = psutil.net_io_counters()
                             current_time = time.time()
@@ -190,13 +204,19 @@ class AntiDetectGUI:
                                 speed_text = f"{dl_speed / (1024 * 1024):.1f} MB/s"
                             else:
                                 speed_text = f"{dl_speed / 1024:.1f} KB/s"
+                                
+                            total_bytes = (current_net.bytes_recv - initial_net.bytes_recv) + (current_net.bytes_sent - initial_net.bytes_sent)
+                            if total_bytes >= 1024 * 1024 * 1024:
+                                data_text = f"{total_bytes / (1024 * 1024 * 1024):.2f} GB"
+                            else:
+                                data_text = f"{total_bytes / (1024 * 1024):.1f} MB"
 
                             last_net = current_net
                             last_time = current_time
 
-                        self.root.after(0, update_ui, ip, latency, speed_text, False)
+                        self.root.after(0, update_ui, ip, latency, speed_text, data_text, False)
                 except Exception:
-                    self.root.after(0, update_ui, "Mất kết nối", "N/A", "0 KB/s", True)
+                    self.root.after(0, update_ui, "Mất kết nối", "N/A", "0 KB/s", "N/A", True)
                     current_ip = ""
                 time.sleep(2)
                 
