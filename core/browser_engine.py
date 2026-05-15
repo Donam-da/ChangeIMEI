@@ -417,17 +417,27 @@ class BrowserEngine:
                                         if self._should_close or task_completed: break
                                         
                                         print(f"[*] Đang tìm nút: '{step}'...")
-                                        step_loc = active_page.locator(f"text='{step}'")
+                                        
+                                        # 1. Tự động cuộn trang để kích hoạt nút (nhiều web dùng Lazy-load, phải cuộn mới hiện DOM)
+                                        active_page.evaluate("window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})")
+                                        active_page.wait_for_timeout(2000)
                                         
                                         button_found = False
-                                        if step_loc.count() > 0:
-                                            for i in range(step_loc.count()):
-                                                if step_loc.nth(i).is_visible():
-                                                    step_loc.nth(i).scroll_into_view_if_needed()
-                                                    active_page.wait_for_timeout(1000)
-                                                    step_loc.nth(i).click(timeout=3000)
-                                                    button_found = True
-                                                    break
+                                        # 2. Quét trong trang chính và xuyên qua tất cả thẻ iframe
+                                        for frame in [active_page] + active_page.frames:
+                                            # Bỏ dấu nháy đơn để tìm chuỗi con, không phân biệt hoa thường và bỏ qua khoảng trắng thừa
+                                            step_loc = frame.locator(f"text={step}")
+                                            if step_loc.count() > 0:
+                                                for i in range(step_loc.count()):
+                                                    try:
+                                                        if step_loc.nth(i).is_visible():
+                                                            step_loc.nth(i).scroll_into_view_if_needed()
+                                                            active_page.wait_for_timeout(1000)
+                                                            step_loc.nth(i).click(timeout=3000)
+                                                            button_found = True
+                                                            break
+                                                    except Exception: pass
+                                            if button_found: break
                                                     
                                         if button_found:
                                             print(f"[*] Đã nhấn '{step}'. Đang chờ hệ thống đếm ngược...")
@@ -436,7 +446,7 @@ class BrowserEngine:
                                                 if self._should_close: break
                                                 active_page.wait_for_timeout(1000)
                                                 
-                                                finish_loc = active_page.locator("text='Nhấn để tiếp tục', text='Nhấn Để Tiếp Tục'")
+                                                finish_loc = active_page.locator("text=Nhấn để tiếp tục")
                                                 is_finished = False
                                                 for i in range(finish_loc.count()):
                                                     if finish_loc.nth(i).is_visible():
@@ -451,7 +461,7 @@ class BrowserEngine:
                                                     task_completed = True
                                                     break
                                                     
-                                                link_loc = active_page.locator("text='Nhấn link bất kỳ để tiếp tục', text='Nhấn link bất kì để tiếp tục'")
+                                                link_loc = active_page.locator("text=Nhấn link bất kỳ để tiếp tục, text=Nhấn link bất kì để tiếp tục")
                                                 needs_reload = False
                                                 for i in range(link_loc.count()):
                                                     if link_loc.nth(i).is_visible():
