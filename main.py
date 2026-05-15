@@ -26,8 +26,18 @@ class AntiDetectGUI:
         self.btn_pin = tk.Button(root, text="📌 Ghim", font=("Arial", 9, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_pin, activebackground="#333333", activeforeground="#00e676")
         self.btn_pin.place(x=780, y=15, width=100)
 
-        self.ip_label = tk.Label(root, text="🌐 IP: Đang kiểm tra... | ⚡ Ping: ... | ⬇️ Speed: ...", font=("Arial", 11, "bold"), fg="#ffb74d", bg="#121212")
-        self.ip_label.pack(pady=(0, 10))
+        # Bảng thông tin mạng (Dùng lưới Grid để căn chỉnh Icon và Chữ luôn thẳng hàng)
+        net_frame = tk.Frame(root, bg="#121212")
+        net_frame.pack(pady=(0, 10))
+
+        self.ip_label = tk.Label(net_frame, text="🌐 IP: Đang kiểm...", font=("Arial", 10, "bold"), fg="#00e676", bg="#121212")
+        self.ip_label.grid(row=0, column=0, padx=8)
+
+        self.ping_label = tk.Label(net_frame, text="⚡ Ping: ...", font=("Arial", 10, "bold"), fg="#ffb74d", bg="#121212")
+        self.ping_label.grid(row=0, column=1, padx=8)
+
+        self.speed_label = tk.Label(net_frame, text="⬇️ Speed: ...", font=("Arial", 10, "bold"), fg="#4dd0e1", bg="#121212")
+        self.speed_label.grid(row=0, column=2, padx=8)
 
         tk.Label(root, text="Nhập link URL muốn mở:", font=("Arial", 10), fg="#e0e0e0", bg="#121212").pack()
         
@@ -144,6 +154,11 @@ class AntiDetectGUI:
             last_net = psutil.net_io_counters() if psutil else None
             last_time = time.time()
 
+            def update_ui(i, l, s, err=False):
+                self.ip_label.config(text=f"🌐 IP: {i}", fg="#ff5252" if err else "#00e676")
+                self.ping_label.config(text=f"⚡ Ping: {l}", fg="#ff5252" if err else "#ffb74d")
+                self.speed_label.config(text=f"⬇️ Speed: {s}")
+
             while True:
                 try:
                     import socket
@@ -153,7 +168,7 @@ class AntiDetectGUI:
                         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                             s.settimeout(1.5)
                             s.connect(("8.8.8.8", 53))
-                        latency = int((time.time() - ping_start) * 1000)
+                        latency = f"{int((time.time() - ping_start) * 1000)}ms"
                     except Exception:
                         latency = "N/A"
                         
@@ -162,7 +177,7 @@ class AntiDetectGUI:
                     with urllib.request.urlopen(req, timeout=2) as response:
                         ip = response.read().decode('utf-8').strip()
                         
-                        speed_text = ""
+                        speed_text = "0 KB/s"
                         if psutil:
                             current_net = psutil.net_io_counters()
                             current_time = time.time()
@@ -172,16 +187,16 @@ class AntiDetectGUI:
                             dl_speed = dl_bytes / time_diff if time_diff > 0 else 0
                             
                             if dl_speed >= 1024 * 1024:
-                                speed_text = f" | ⬇️ {dl_speed / (1024 * 1024):.1f} MB/s"
+                                speed_text = f"{dl_speed / (1024 * 1024):.1f} MB/s"
                             else:
-                                speed_text = f" | ⬇️ {dl_speed / 1024:.1f} KB/s"
-                                
+                                speed_text = f"{dl_speed / 1024:.1f} KB/s"
+
                             last_net = current_net
                             last_time = current_time
 
-                        self.root.after(0, lambda i=ip, l=latency, s=speed_text: self.ip_label.config(text=f"🌐 IP: {i} | ⚡ Ping: {l}ms{s}", fg="#00e676"))
+                        self.root.after(0, update_ui, ip, latency, speed_text, False)
                 except Exception:
-                    self.root.after(0, lambda: self.ip_label.config(text="🌐 IP: Mất kết nối mạng... | ⚡ Ping: N/A", fg="#ff5252"))
+                    self.root.after(0, update_ui, "Mất kết nối", "N/A", "0 KB/s", True)
                     current_ip = ""
                 time.sleep(2)
                 
