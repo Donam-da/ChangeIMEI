@@ -22,6 +22,10 @@ class AntiDetectGUI:
         # Thiết kế các thành phần Giao diện (UI)
         tk.Label(root, text="CÔNG CỤ ANTI-DETECT: CHANGE IMEI", font=("Arial", 14, "bold"), fg="#00ffff", bg="#121212").pack(pady=15)
         
+        self.is_pinned = False
+        self.btn_pin = tk.Button(root, text="📌 Ghim", font=("Arial", 9, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_pin, activebackground="#333333", activeforeground="#00e676")
+        self.btn_pin.place(x=780, y=15, width=100)
+
         self.ip_label = tk.Label(root, text="🌐 IP Hiện Tại: Đang kiểm tra...", font=("Arial", 11, "bold"), fg="#ffb74d", bg="#121212")
         self.ip_label.pack(pady=(0, 10))
 
@@ -147,6 +151,15 @@ class AntiDetectGUI:
         else:
             self.url_entry.config(show='')
             self.btn_toggle_url.config(text="👁️")
+
+    def toggle_pin(self):
+        """Bật/tắt chế độ luôn nổi trên cùng (Topmost) của cửa sổ"""
+        self.is_pinned = not self.is_pinned
+        self.root.attributes("-topmost", self.is_pinned)
+        if self.is_pinned:
+            self.btn_pin.config(text="📍 Đã Ghim", fg="#00e676")
+        else:
+            self.btn_pin.config(text="📌 Ghim", fg="#a0a0a0")
 
     def show_initialization(self):
         """Hiển thị tiến trình khởi tạo thiết bị giả lập mới khi mở tool hoặc sau khi dọn dẹp."""
