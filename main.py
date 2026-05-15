@@ -26,7 +26,7 @@ class AntiDetectGUI:
         self.btn_pin = tk.Button(root, text="📌 Ghim", font=("Arial", 9, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_pin, activebackground="#333333", activeforeground="#00e676")
         self.btn_pin.place(x=780, y=15, width=100)
 
-        self.ip_label = tk.Label(root, text="🌐 IP Hiện Tại: Đang kiểm tra...", font=("Arial", 11, "bold"), fg="#ffb74d", bg="#121212")
+        self.ip_label = tk.Label(root, text="🌐 IP: Đang kiểm tra... | ⚡ Ping: ... | ⬇️ Speed: ...", font=("Arial", 11, "bold"), fg="#ffb74d", bg="#121212")
         self.ip_label.pack(pady=(0, 10))
 
         tk.Label(root, text="Nhập link URL muốn mở:", font=("Arial", 10), fg="#e0e0e0", bg="#121212").pack()
@@ -128,16 +128,60 @@ class AntiDetectGUI:
         def monitor():
             import time
             current_ip = ""
+            
+            # Tự động cài đặt thư viện psutil (nếu chưa có) để đo tốc độ mạng
+            try:
+                import psutil
+            except ImportError:
+                import subprocess
+                import sys
+                try:
+                    subprocess.run([sys.executable, "-m", "pip", "install", "psutil", "-q"], check=True)
+                    import psutil
+                except Exception:
+                    psutil = None
+                    
+            last_net = psutil.net_io_counters() if psutil else None
+            last_time = time.time()
+
             while True:
                 try:
+                    import socket
+                    # Đo Ping thực tế bằng kết nối TCP siêu nhẹ tới DNS Google (giống hệt ICMP Ping thực tế)
+                    try:
+                        ping_start = time.time()
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            s.settimeout(1.5)
+                            s.connect(("8.8.8.8", 53))
+                        latency = int((time.time() - ping_start) * 1000)
+                    except Exception:
+                        latency = "N/A"
+                        
+                    # Lấy IP (Không dùng thời gian tải HTTPS này làm số Ping nữa)
                     req = urllib.request.Request("https://api.ipify.org", headers={'User-Agent': 'Mozilla/5.0'})
                     with urllib.request.urlopen(req, timeout=2) as response:
                         ip = response.read().decode('utf-8').strip()
-                        if ip != current_ip:
-                            current_ip = ip
-                            self.root.after(0, lambda i=ip: self.ip_label.config(text=f"🌐 IP Hiện Tại: {i}", fg="#00e676"))
+                        
+                        speed_text = ""
+                        if psutil:
+                            current_net = psutil.net_io_counters()
+                            current_time = time.time()
+                            time_diff = current_time - last_time
+                            
+                            dl_bytes = current_net.bytes_recv - last_net.bytes_recv
+                            dl_speed = dl_bytes / time_diff if time_diff > 0 else 0
+                            
+                            if dl_speed >= 1024 * 1024:
+                                speed_text = f" | ⬇️ {dl_speed / (1024 * 1024):.1f} MB/s"
+                            else:
+                                speed_text = f" | ⬇️ {dl_speed / 1024:.1f} KB/s"
+                                
+                            last_net = current_net
+                            last_time = current_time
+
+                        self.root.after(0, lambda i=ip, l=latency, s=speed_text: self.ip_label.config(text=f"🌐 IP: {i} | ⚡ Ping: {l}ms{s}", fg="#00e676"))
                 except Exception:
-                    self.root.after(0, lambda: self.ip_label.config(text="🌐 IP Hiện Tại: Mất kết nối mạng...", fg="#ff5252"))
+                    self.root.after(0, lambda: self.ip_label.config(text="🌐 IP: Mất kết nối mạng... | ⚡ Ping: N/A", fg="#ff5252"))
                     current_ip = ""
                 time.sleep(2)
                 
