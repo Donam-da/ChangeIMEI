@@ -818,7 +818,7 @@ class AntiDetectGUI:
                 f"Hệ điều hành : {profile.get('platform', 'N/A')} (Mobile: {profile.get('is_mobile', False)})\n"
                 f"Độ phân giải : {profile['viewport']['width']}x{profile['viewport']['height']}\n"
                 f"Múi giờ      : {profile['timezone_id']} | Ngôn ngữ: {profile['locale']}\n"
-                f"User-Agent   : {profile['user_agent']}\n"
+                f"User-Agent   : {profile.get('user_agent') or 'Sử dụng UA chuẩn của máy'}\n"
                 f"File chạy    : {profile.get('executable_path', 'Đang chờ khởi chạy...')}"
             )
             self.device_info_text.insert(tk.END, info_str)

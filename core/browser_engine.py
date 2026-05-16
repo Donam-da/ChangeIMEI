@@ -136,9 +136,10 @@ class BrowserEngine:
                             "--disable-blink-features=AutomationControlled",
                             "--disable-infobars",
                             "--no-sandbox",
+                            "--disable-features=IsolateOrigins,site-per-process",
                             f"--window-size={v_width},{v_height}"
                         ],
-                        user_agent=device_profile["user_agent"],
+                        **( {'user_agent': device_profile["user_agent"]} if device_profile.get("user_agent") else {} ),
                         viewport=device_profile["viewport"],
                         is_mobile=device_profile["is_mobile"],
                         has_touch=device_profile["is_mobile"],
@@ -156,9 +157,10 @@ class BrowserEngine:
                             "--disable-blink-features=AutomationControlled",
                             "--disable-infobars",
                             "--no-sandbox",
+                            "--disable-features=IsolateOrigins,site-per-process",
                             f"--window-size={v_width},{v_height}"
                         ],
-                        user_agent=device_profile["user_agent"],
+                        **( {'user_agent': device_profile["user_agent"]} if device_profile.get("user_agent") else {} ),
                         viewport=device_profile["viewport"],
                         is_mobile=device_profile["is_mobile"],
                         has_touch=device_profile["is_mobile"],
@@ -210,6 +212,16 @@ class BrowserEngine:
                     f"delete window.__playwright;\n"
                     f"delete window.__pw_manual;\n"
                     f"delete window.__PW_outOfContext;\n"
+                    f"\n"
+                    f"// Xóa chữ ký CDP (Chrome DevTools Protocol) chống Cloudflare Turnstile\n"
+                    f"try {{\n"
+                    f"    let objectToInspect = window;\n"
+                    f"    let cdcProps = Object.getOwnPropertyNames(objectToInspect).filter(name => name.includes('cdc_'));\n"
+                    f"    cdcProps.forEach(prop => delete objectToInspect[prop]);\n"
+                    f"}} catch(e) {{}}\n"
+                    f"Object.defineProperty(navigator, 'webdriver', {{get: () => undefined}});\n"
+                    f"if (!window.chrome) window.chrome = {{}};\n"
+                    f"if (!window.chrome.runtime) window.chrome.runtime = {{}};\n"
                     f"\n"
                     f"// --- HỖ TRỢ ZOOM BẰNG CTRL + CUỘN CHUỘT --- \n"
                     f"window.addEventListener('wheel', function(e) {{\n"
