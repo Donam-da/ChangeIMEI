@@ -97,27 +97,18 @@ class AntiDetectGUI:
         net_frame = tk.Frame(root, bg="#121212")
         net_frame.pack(pady=(0, 8))
 
-        mac_num = hex(uuid.getnode()).replace('0x', '').zfill(12)
-        mac_address = ':'.join(mac_num[i: i + 2] for i in range(0, 12, 2)).upper()
-        
-        self.mac_label = tk.Label(net_frame, text=f"MAC(Real): {mac_address}", font=("Arial", 8, "bold"), fg="#b388ff", bg="#121212", width=32, anchor="w")
-        self.mac_label.grid(row=0, column=0, padx=6, sticky="w")
-        
-        self.virtual_mac_label = tk.Label(net_frame, text="MAC(Fake): Đang tạo...", font=("Arial", 8, "bold"), fg="#ff4081", bg="#121212", width=32, anchor="w")
-        self.virtual_mac_label.grid(row=1, column=0, padx=6, sticky="w")
-
         self.ip_label = tk.Label(net_frame, text="🌐 IP: Đang kiểm...", font=("Arial", 8, "bold"), fg="#00e676", bg="#121212")
-        self.ip_label.grid(row=0, column=1, rowspan=2, padx=6)
+        self.ip_label.grid(row=0, column=0, rowspan=2, padx=6)
 
         self.ping_label = tk.Label(net_frame, text="⚡ Ping: ...", font=("Arial", 8, "bold"), fg="#ffb74d", bg="#121212")
-        self.ping_label.grid(row=0, column=2, rowspan=2, padx=6)
+        self.ping_label.grid(row=0, column=1, rowspan=2, padx=6)
 
         self.disconnect_count = 0
         self.disconnect_label = tk.Label(net_frame, text="❌ Rớt: 0", font=("Arial", 8, "bold"), fg="#ff5252", bg="#121212")
-        self.disconnect_label.grid(row=0, column=3, padx=6, sticky="w")
+        self.disconnect_label.grid(row=0, column=2, padx=6, sticky="w")
         
         self.last_disconnect_label = tk.Label(net_frame, text="⏱️ Lúc: N/A", font=("Arial", 7, "italic"), fg="#a0a0a0", bg="#121212")
-        self.last_disconnect_label.grid(row=1, column=3, padx=6, sticky="w")
+        self.last_disconnect_label.grid(row=1, column=2, padx=6, sticky="w")
 
         self.analysis_label = tk.Label(root, text="🔍 Phân tích web: Đang chờ thao tác...", font=("Arial", 8, "bold"), fg="#ffff00", bg="#121212")
         self.analysis_label.pack(pady=(0, 4))
@@ -268,9 +259,9 @@ class AntiDetectGUI:
         # Cập nhật cỡ chữ và giao diện theo scale hiện tại ngay khi phần mềm khởi động xong
         self.root.after(50, self.apply_scale)
 
-    def update_network_analysis(self, cookie_count, auto_cmds=0, bot_percent=0):
+    def update_network_analysis(self, cookie_count, auto_cmds=0, server_health=100.0):
         def _update():
-            self.analysis_label.config(text=f"🔍 Phân tích web: Cookies: {cookie_count} | ⚙️ Lệnh Auto: {auto_cmds} | 🤖 Giống Bot: {bot_percent}%", fg=self.get_color("#ffff00"))
+            self.analysis_label.config(text=f"🔍 Phân tích web: Cookies: {cookie_count} | ⚙️ Lệnh Auto: {auto_cmds} | 🚦 Server: {server_health:.2f}%", fg=self.get_color("#ffff00"))
         self.root.after(0, _update)
 
     def update_clock(self):
@@ -790,8 +781,6 @@ class AntiDetectGUI:
         self.device_info_frame.config(text="Chi tiết trình duyệt:")
         self.update_device_info_display(self.current_profile)
         
-        self.virtual_mac_label.config(text="MAC(Fake): Đang chờ khởi chạy...")
-        
         self.btn_ip_that.config(state=tk.NORMAL)
         self.btn_proxy.config(state=tk.NORMAL)
         self.btn_delete.config(state=tk.DISABLED)
@@ -977,10 +966,6 @@ class AntiDetectGUI:
         creds = self.load_credentials()
         self.engine.login_phone = creds.get("phone", "")
         self.engine.login_password = creds.get("password", "")
-
-        # Hiển thị MAC Fake ngay lập tức khi bắt đầu chạy thay vì chờ Google search xong
-        if self.current_profile and "mac_address" in self.current_profile:
-            self.virtual_mac_label.config(text=f"MAC(Fake): {self.current_profile['mac_address']}")
 
         try:
             def on_browser_created():

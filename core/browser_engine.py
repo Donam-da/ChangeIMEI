@@ -173,6 +173,7 @@ class BrowserEngine:
                 # --- TÍNH NĂNG GIÁM SÁT NETWORK ---
                 self.auto_action_count = 0
                 self.req_stats = {'total': 0, 'finished': 0}
+                self.latest_latency = 0
                 
                 self.context.on("request", lambda req: self.req_stats.update({'total': self.req_stats['total'] + 1}))
                 self.context.on("requestfinished", lambda req: self.req_stats.update({'finished': self.req_stats['finished'] + 1}))
@@ -184,20 +185,14 @@ class BrowserEngine:
                         if response.request.resource_type == "document" and "finish" in response.url:
                             self._pending_action = "fix_404_error"
                                 
-                        current_cookies = self.context.cookies()
-                        
-                        bot_percent = 0
-                        # Tính toán phần trăm giống bot dựa trên hành vi
-                        if self.auto_action_count > 0:
-                            bot_percent += self.auto_action_count * 5
-                        if self.req_stats['total'] > 50 and len(current_cookies) < 3:
-                            bot_percent += 20
-                        if self.req_stats['total'] > 200:
-                            bot_percent += 10
-                        bot_percent = min(100, bot_percent)
-                        
-                        if self.network_callback:
-                            self.network_callback(len(current_cookies), self.auto_action_count, bot_percent)
+                        try:
+                            timing = response.request.timing
+                            if timing and timing.get("responseStart", -1) > -1 and timing.get("requestStart", -1) > -1:
+                                latency = timing.get("responseStart") - timing.get("requestStart")
+                                if latency > 0:
+                                    self.latest_latency = latency
+                        except Exception:
+                            pass
                     except Exception:
                         pass
 
@@ -413,10 +408,32 @@ class BrowserEngine:
 
                 on_launch_callback(device_profile)
 
+                last_health_time = time.time()
                 try:
                     # Giữ tiến trình chạy cho đến khi tất cả các tab bị đóng hoặc trình duyệt tắt
                     while self.context and self.context.pages and not self._should_close:
                         try:
+                            # --- CẬP NHẬT CHỈ SỐ SERVER MỖI 2 GIÂY ---
+                            current_time = time.time()
+                            if current_time - last_health_time >= 2.0:
+                                last_health_time = current_time
+                                try:
+                                    server_health = 100.0
+                                    total = max(1, self.req_stats['total'])
+                                    finished = self.req_stats['finished']
+                                    ratio = finished / total
+                                    
+                                    if getattr(self, 'latest_latency', 0) > 0:
+                                        server_health -= min(70.0, self.latest_latency / 150.0)
+                                        
+                                    server_health -= (1.0 - ratio) * 50.0
+                                    server_health = max(0.01, min(100.0, server_health + random.uniform(-0.5, 0.5)))
+                                    
+                                    if self.network_callback:
+                                        self.network_callback(len(self.context.cookies()), self.auto_action_count, server_health)
+                                except Exception:
+                                    pass
+
                             # --- TỰ ĐỘNG DIỆT CLOUDFLARE TURNSTILE TRONG LÚC RẢNH RỖI ---
                             try:
                                 active_p = self.context.pages[-1]
