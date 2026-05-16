@@ -135,7 +135,6 @@ class BrowserEngine:
                         args=[
                             "--disable-blink-features=AutomationControlled",
                             "--disable-infobars",
-                            "--no-sandbox",
                             "--disable-features=IsolateOrigins,site-per-process",
                             f"--window-size={v_width},{v_height}"
                         ],
@@ -156,7 +155,6 @@ class BrowserEngine:
                         args=[
                             "--disable-blink-features=AutomationControlled",
                             "--disable-infobars",
-                            "--no-sandbox",
                             "--disable-features=IsolateOrigins,site-per-process",
                             f"--window-size={v_width},{v_height}"
                         ],
@@ -402,12 +400,11 @@ class BrowserEngine:
                 except PlaywrightTimeoutError:
                     print("[!!!] CẢNH BÁO: Mạng quá chậm hoặc rớt kết nối (Timeout 90s).")
                     print("[!!!] Vui lòng kiểm tra lại chất lượng Proxy (Ping cao hoặc mất kết nối)!")
-                    return
                 except PlaywrightError as e:
                     if "closed" in str(e).lower() or "target page" in str(e).lower():
                         print("[!] Trình duyệt đã bị đóng trong lúc đang tải trang.")
                         return
-                    raise e
+                    print(f"[!!!] CẢNH BÁO: Lỗi mạng hoặc kết nối thất bại ({e}). Trình duyệt vẫn sẽ được giữ mở.")
 
                 print("=====================================================")
                 print("Trình duyệt đang mở! Bạn có thể thao tác tay.")
@@ -572,7 +569,23 @@ class BrowserEngine:
                                             btn_selectors = "button[type='submit'], button:has-text('Đăng nhập'), button:has-text('Đăng Nhập'), button:has-text('Login'), input[type='submit']"
                                             target_page.click(btn_selectors, timeout=4000)
                                             self.auto_action_count += 1
-                                            print("[*] Đã nhấn nút Đăng nhập. Hoàn tất lệnh tự động!")
+                                            print("[*] Đã nhấn nút Đăng nhập. Đang kiểm tra kết quả (chờ tối đa 5s)...")
+                                            
+                                            try:
+                                                # Đợi 5s xem URL có thoát khỏi trang login (để vào home) hay không
+                                                target_page.wait_for_function("window.location.href.indexOf('login') === -1", timeout=5000)
+                                                print("[*] Đăng nhập thành công, đã vào trang Home!")
+                                                self.login_retry_count = 0  # Reset bộ đếm thử lại nếu thành công
+                                            except Exception:
+                                                print("[-] Sau 5s vẫn chưa vào được trang Home.")
+                                                self.login_retry_count = getattr(self, 'login_retry_count', 0) + 1
+                                                if self.login_retry_count <= 3:
+                                                    print(f"[*] Đang tải lại trang (F5) và thử đăng nhập lại (Lần {self.login_retry_count})...")
+                                                    target_page.reload(wait_until="domcontentloaded", timeout=15000)
+                                                    self._pending_action = "fill_login"
+                                                else:
+                                                    print("[!] Đã thử tự động đăng nhập lại 3 lần nhưng vẫn thất bại. Có thể do sai mật khẩu hoặc Captcha. Dừng tự động.")
+                                                    self.login_retry_count = 0
                                         except Exception:
                                             print("[!] Không tìm thấy nút Đăng nhập tự động. Vui lòng nhấn bằng tay.")
                                     except Exception as ex:
