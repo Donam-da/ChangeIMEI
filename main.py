@@ -188,7 +188,7 @@ class AntiDetectGUI:
         self.path_entry.pack(fill=tk.X, expand=True, ipady=2)
 
         tk.Label(info_frame, 
-                 text="*Đây là nơi Playwright cài đặt các trình duyệt (Chromium, Firefox,...).\n*Dữ liệu phiên (cookie, cache) của mỗi lần chạy là tạm thời và sẽ bị xóa sạch.",
+                 text="*Đây là nơi trình duyệt lưu trữ dữ liệu phiên hoạt động (Cookie, Cache, Lịch sử) của thiết bị ảo.\n*Thư mục được sinh ngẫu nhiên mỗi lần mở và sẽ bị tự động tiêu hủy khi bạn bấm dọn dẹp.",
                  font=("Arial", 7), fg="#4dd0e1", bg="#121212", justify=tk.LEFT).pack(anchor='w', pady=(2,0))
         # --- Kết thúc ---
 
@@ -573,10 +573,12 @@ class AntiDetectGUI:
             dialog_h = int(120 * self.current_scale)
             self.root.update_idletasks()
             
-            screen_w = self.root.winfo_screenwidth()
-            screen_h = self.root.winfo_screenheight()
-            pos_x = (screen_w // 2) - (dialog_w // 2)
-            pos_y = (screen_h // 2) - (dialog_h // 2)
+            main_x = self.root.winfo_rootx()
+            main_y = self.root.winfo_rooty()
+            main_w = self.root.winfo_width()
+            main_h = self.root.winfo_height()
+            pos_x = main_x + (main_w // 2) - (dialog_w // 2)
+            pos_y = main_y + (main_h // 2) - (dialog_h // 2)
             
             dialog.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
             dialog.configure(bg="#121212")
@@ -606,10 +608,12 @@ class AntiDetectGUI:
         dialog_h = int(150 * self.current_scale)
         self.root.update_idletasks()
         
-        screen_w = self.root.winfo_screenwidth()
-        screen_h = self.root.winfo_screenheight()
-        pos_x = (screen_w // 2) - (dialog_w // 2)
-        pos_y = (screen_h // 2) - (dialog_h // 2)
+        main_x = self.root.winfo_rootx()
+        main_y = self.root.winfo_rooty()
+        main_w = self.root.winfo_width()
+        main_h = self.root.winfo_height()
+        pos_x = main_x + (main_w // 2) - (dialog_w // 2)
+        pos_y = main_y + (main_h // 2) - (dialog_h // 2)
         prog_win.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
         
         prog_win.configure(bg="#121212")
@@ -747,7 +751,7 @@ class AntiDetectGUI:
                     # Chỉ xóa dữ liệu rác/cookie tạm thời của Playwright, giữ lại lõi trình duyệt
                     temp_dir = tempfile.gettempdir()
                     for item in os.listdir(temp_dir):
-                        if item.startswith("playwright_"):
+                        if item.startswith("playwright_") or item.startswith("pyright-"):
                             shutil.rmtree(os.path.join(temp_dir, item), ignore_errors=True)
                 except: pass
                 
@@ -780,27 +784,13 @@ class AntiDetectGUI:
         dialog.protocol("WM_DELETE_WINDOW", cancel)
 
     def get_playwright_browser_path(self):
-        """Lấy đường dẫn thư mục cài đặt trình duyệt của Playwright."""
+        """Lấy đường dẫn thư mục chứa dữ liệu cấu hình tạm thời của trình duyệt Playwright."""
         try:
-            if sys.platform == "win32":
-                # Trên Windows, nó nằm trong LOCALAPPDATA
-                path = os.path.join(os.environ["LOCALAPPDATA"], "ms-playwright")
-            elif sys.platform == "darwin":
-                # Trên macOS
-                path = os.path.join(os.path.expanduser("~"), "Library", "Caches", "ms-playwright")
-            else: 
-                # Trên Linux và các hệ thống tương tự Unix
-                path = os.path.join(os.path.expanduser("~"), ".cache", "ms-playwright")
-            
-            if os.path.exists(path):
-                chromium_dirs = [d for d in os.listdir(path) if d.startswith("chromium")]
-                if chromium_dirs:
-                    chromium_dirs.sort(reverse=True) # Ưu tiên lấy thư mục phiên bản mới nhất
-                    return os.path.join(path, chromium_dirs[0])
-                return path
-            return "Chưa tìm thấy (Cần chạy trình duyệt lần đầu để cài đặt)"
+            temp_dir = tempfile.gettempdir()
+            # Do mỗi lần chạy Playwright sinh ra 1 thư mục ngẫu nhiên, ta hiển thị định dạng mẫu
+            return os.path.join(temp_dir, "playwright_chromiumdev_profile-[Mã_Ngẫu_Nhiên]")
         except Exception as e:
-            print(f"Lỗi khi lấy đường dẫn Playwright: {e}")
+            print(f"Lỗi khi lấy đường dẫn: {e}")
             return "Không thể xác định đường dẫn."
 
     def set_ui_for_browser_state(self, is_running):
@@ -909,10 +899,12 @@ class AntiDetectGUI:
         dialog_h = int(150 * self.current_scale)
         self.root.update_idletasks()
         
-        screen_w = self.root.winfo_screenwidth()
-        screen_h = self.root.winfo_screenheight()
-        pos_x = (screen_w // 2) - (dialog_w // 2)
-        pos_y = (screen_h // 2) - (dialog_h // 2)
+        main_x = self.root.winfo_rootx()
+        main_y = self.root.winfo_rooty()
+        main_w = self.root.winfo_width()
+        main_h = self.root.winfo_height()
+        pos_x = main_x + (main_w // 2) - (dialog_w // 2)
+        pos_y = main_y + (main_h // 2) - (dialog_h // 2)
         
         prog_win.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
         prog_win.configure(bg="#121212")
@@ -964,7 +956,7 @@ class AntiDetectGUI:
                     try:
                         temp_dir = tempfile.gettempdir()
                         for item in os.listdir(temp_dir):
-                            if item.startswith("playwright_"):
+                            if item.startswith("playwright_") or item.startswith("pyright-"):
                                 shutil.rmtree(os.path.join(temp_dir, item), ignore_errors=True)
                     except Exception: pass
                     
