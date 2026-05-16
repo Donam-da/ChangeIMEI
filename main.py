@@ -216,14 +216,14 @@ class AntiDetectGUI:
         self.device_info_frame = tk.LabelFrame(bottom_container, text="Chi tiết trình duyệt vừa tạo:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
         self.device_info_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
         
-        self.device_info_text = tk.Text(self.device_info_frame, height=6, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
+        self.device_info_text = tk.Text(self.device_info_frame, height=7, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
         self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
         # Cột 2: Terminal Log
         self.log_frame = tk.LabelFrame(bottom_container, text="Log:", font=("Arial", 7, "bold"), bg="#121212", fg="#00e676")
         self.log_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
 
-        self.log_text = tk.Text(self.log_frame, height=6, font=("Courier", 7), bg="#1e1e1e", fg="#00e676", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
+        self.log_text = tk.Text(self.log_frame, height=7, font=("Courier", 7), bg="#1e1e1e", fg="#00e676", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
         self.log_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
         # Chuyển hướng Terminal (stdout/stderr) vào GUI
@@ -544,8 +544,8 @@ class AntiDetectGUI:
         self.disconnect_popup.withdraw()
         self.disconnect_popup.overrideredirect(True) # Xóa thanh tiêu đề để trông giống thông báo nổi hơn
         
-        dialog_w = int(700 * self.current_scale)
-        dialog_h = int(160 * self.current_scale)
+        dialog_w = int(240 * self.current_scale)
+        dialog_h = int(60 * self.current_scale)
         
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
@@ -561,7 +561,7 @@ class AntiDetectGUI:
         inner_frame = tk.Frame(border_frame, bg="#121212")
         inner_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
         
-        tk.Label(inner_frame, text="⚠️ CẢNH BÁO: MẤT KẾT NỐI MẠNG!", font=("Arial", 20, "bold"), fg="#ff5252", bg="#121212").pack(expand=True)
+        tk.Label(inner_frame, text="⚠️ CẢNH BÁO: MẤT KẾT NỐI MẠNG!", font=("Arial", 8, "bold"), fg="#ff5252", bg="#121212").pack(expand=True)
         
         self._scale_widget_tree(self.disconnect_popup, self.current_scale)
         self.apply_current_theme(self.disconnect_popup)
@@ -579,13 +579,13 @@ class AntiDetectGUI:
         self.unstable_popup.withdraw()
         self.unstable_popup.overrideredirect(True) # Xóa thanh tiêu đề
         
-        dialog_w = int(700 * self.current_scale)
-        dialog_h = int(160 * self.current_scale)
+        dialog_w = int(240 * self.current_scale)
+        dialog_h = int(60 * self.current_scale)
         
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
         pos_x = (screen_w // 2) - (dialog_w // 2)
-        pos_y = (screen_h // 2) - (dialog_h // 2) - int(170 * self.current_scale) # Hơi đẩy lên trên để không đè vào thông báo mất kết nối
+        pos_y = (screen_h // 2) - (dialog_h // 2) - int(70 * self.current_scale) # Hơi đẩy lên trên để không đè vào thông báo mất kết nối
         
         self.unstable_popup.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
         self.unstable_popup.attributes("-topmost", True)
@@ -596,7 +596,7 @@ class AntiDetectGUI:
         inner_frame = tk.Frame(border_frame, bg="#121212")
         inner_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
         
-        tk.Label(inner_frame, text=f"⚠️ MẠNG KHÔNG ỔN ĐỊNH (Ping: {ping_str})", font=("Arial", 20, "bold"), fg="#ff9800", bg="#121212").pack(expand=True)
+        tk.Label(inner_frame, text=f"⚠️ MẠNG KHÔNG ỔN ĐỊNH (Ping: {ping_str})", font=("Arial", 8, "bold"), fg="#ff9800", bg="#121212").pack(expand=True)
         
         self._scale_widget_tree(self.unstable_popup, self.current_scale)
         self.apply_current_theme(self.unstable_popup)
@@ -817,7 +817,8 @@ class AntiDetectGUI:
             info_str = (
                 f"Hệ điều hành : {profile.get('platform', 'N/A')} (Mobile: {profile.get('is_mobile', False)})\n"
                 f"Độ phân giải : {profile['viewport']['width']}x{profile['viewport']['height']}\n"
-                f"Múi giờ      : {profile['timezone_id']} | Ngôn ngữ: {profile['locale']}\n"
+                f"Múi giờ      : {profile['timezone_id']}\n"
+                f"Ngôn ngữ     : {profile['locale']}\n"
                 f"User-Agent   : {profile.get('user_agent') or 'Sử dụng UA chuẩn của máy'}\n"
                 f"File chạy    : {profile.get('executable_path', 'Đang chờ khởi chạy...')}"
             )
