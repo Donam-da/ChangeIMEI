@@ -37,7 +37,7 @@ class AntiDetectGUI:
         
         self.current_scale = 0.8
         # Căn giữa cửa sổ phần mềm chính trên màn hình lúc mới bật
-        window_w = int(800 * self.current_scale)
+        window_w = int(400 * self.current_scale)
         window_h = int(540 * self.current_scale)
         screen_w = root.winfo_screenwidth()
         screen_h = root.winfo_screenheight()
@@ -118,7 +118,7 @@ class AntiDetectGUI:
         url_frame = tk.Frame(root, bg="#121212")
         url_frame.pack(pady=4)
         
-        self.url_entry = tk.Entry(url_frame, width=40, font=("Arial", 8), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT)
+        self.url_entry = tk.Entry(url_frame, width=25, font=("Arial", 8), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT)
         self.url_entry.pack(side=tk.LEFT, ipady=2)
         self.url_entry.insert(0, "https://www.google.com/search?q=moneytask.top&sca_esv=3d73e6268d6609d9&sxsrf=ANbL-n5OwmW4jJHMCw_P-MHSjJYYql4e-Q%3A1778737875726&source=hp&ei=02IFas2XKteO2roP_vuQwQE&iflsig=AFdpzrgAAAAAagVw4whkttcjBBee1Pj39b_eAIp1hlot&oq=money&gs_lp=Egdnd3Mtd2l6IgVtb25leSoCCAAyBBAjGCcyChAAGIAEGIoFGEMyCxAAGIAEGLEDGIMBMgsQABiABBixAxiDATINEAAYgAQYigUYQxixAzILEAAYgAQYigUYkgMyFhAuGIAEGIoFGEMYsQMYyQMYxwEY0QMyChAAGIAEGIoFGEMyEBAuGIAEGIoFGEMYsQMYgwEyChAuGIAEGIoFGENImjRQyh5YqCRwAXgAkAEAmAHGB6AB4BaqAQkzLTIuMS4wLjK4AQHIAQD4AQGYAgagArsXqAIKwgIHECMY6gIYJ8ICDBAjGIAEGIoFGBMYJ8ICCxAuGIAEGLEDGIMBwgIIEC4YgAQYsQPCAg4QLhiABBiKBRixAxiDAcICCBAAGIAEGLEDwgIREC4YgAQYsQMYgwEYxwEY0QPCAhAQABiABBiKBRhDGLEDGIMBmAMN8QXuyFYW96YaBJIHCzEuMy0yLjEuMS4xoAepNLIHCTMtMi4xLjEuMbgHrhfCBwUyLTIuNMgHNoAIAQ&sclient=gws-wiz")
         
@@ -135,33 +135,33 @@ class AntiDetectGUI:
         btn_style = {"font": ("Arial", 8, "bold"), "relief": tk.FLAT, "activebackground": "#00e5ff", "activeforeground": "black"}
 
         self.btn_ip_that = tk.Button(btn_frame, text="Mở Trình Duyệt", 
-                                     command=self.launch_ip_that, bg="#00bcd4", fg="black", width=18, **btn_style)
-        self.btn_ip_that.grid(row=0, column=1, padx=4, pady=4)
+                                     command=self.launch_ip_that, bg="#00bcd4", fg="black", width=13, **btn_style)
+        self.btn_ip_that.grid(row=0, column=1, padx=2, pady=4)
         
         self.btn_proxy = tk.Button(btn_frame, text="Proxy nếu có", 
-                                   command=self.launch_proxy, bg="#a52a2a", fg="white", width=18, **btn_style)
-        self.btn_proxy.grid(row=0, column=0, padx=4, pady=4)
+                                   command=self.launch_proxy, bg="#a52a2a", fg="white", width=13, **btn_style)
+        self.btn_proxy.grid(row=0, column=0, padx=2, pady=4)
 
-        self.btn_auto_login = tk.Button(btn_frame, text="🔑 Auto đăng nhập", 
-                                        command=self.trigger_auto_login, bg="#81c784", fg="black", width=18,
+        self.btn_auto_login = tk.Button(btn_frame, text="🔑 Auto Login", 
+                                        command=self.trigger_auto_login, bg="#81c784", fg="black", width=13,
                                         state=tk.DISABLED, **btn_style)
-        self.btn_auto_login.grid(row=0, column=2, padx=4, pady=4)
+        self.btn_auto_login.grid(row=0, column=2, padx=2, pady=4)
         self.btn_auto_login.bind("<Double-1>", self.show_credentials_dialog)
 
-        self.btn_auto_task_step = tk.Button(btn_frame, text="Upto step (thử nghiệm)", 
-                                        command=self.trigger_auto_task_step, bg="#263238", fg="#00bcd4", width=18,
+        self.btn_auto_task_step = tk.Button(btn_frame, text="Upto step", 
+                                        command=self.trigger_auto_task_step, bg="#263238", fg="#00bcd4", width=13,
                                         state=tk.DISABLED, **btn_style)
-        self.btn_auto_task_step.grid(row=1, column=0, padx=4, pady=4)
+        self.btn_auto_task_step.grid(row=1, column=0, padx=2, pady=4)
 
-        self.btn_auto_task = tk.Button(btn_frame, text="Lấy mã (thử nghiệm)", 
-                                        command=self.trigger_auto_task, bg="#263238", fg="#00bcd4", width=18,
+        self.btn_auto_task = tk.Button(btn_frame, text="Lấy mã auto", 
+                                        command=self.trigger_auto_task, bg="#263238", fg="#00bcd4", width=13,
                                         state=tk.DISABLED, **btn_style)
-        self.btn_auto_task.grid(row=1, column=1, padx=4, pady=4)
+        self.btn_auto_task.grid(row=1, column=1, padx=2, pady=4)
 
         self.btn_delete = tk.Button(btn_frame, text="🗑️ Delete",
-                                    command=self.delete_session, bg="#b71c1c", fg="white", width=18,
+                                    command=self.delete_session, bg="#b71c1c", fg="white", width=13,
                                     state=tk.DISABLED, font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white", disabledforeground="#ffcdd2")
-        self.btn_delete.grid(row=1, column=2, padx=4, pady=4)
+        self.btn_delete.grid(row=1, column=2, padx=2, pady=4)
 
         # --- BỘ LỌC CẤU HÌNH (KÍCH THƯỚC) ---
         filter_frame = tk.Frame(root, bg="#121212")
@@ -195,47 +195,19 @@ class AntiDetectGUI:
         self.path_entry.config(state='readonly')
         self.path_entry.pack(fill=tk.X, expand=True, ipady=2)
 
-        # --- Container cho 2 khung (Thiết bị và Log) ---
+        # --- Container cho khung Thiết bị ---
         bottom_container = tk.Frame(root, bg="#121212")
         bottom_container.pack(pady=(8, 0), fill=tk.BOTH, expand=True, padx=15)
         
-        bottom_container.columnconfigure(0, weight=1, uniform="group1")
-        bottom_container.columnconfigure(1, weight=1, uniform="group1")
+        bottom_container.columnconfigure(0, weight=1)
         bottom_container.rowconfigure(0, weight=1)
 
         # Cột 1: Hiển thị thông số cấu hình giả lập
         self.device_info_frame = tk.LabelFrame(bottom_container, text="Chi tiết trình duyệt vừa tạo:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
-        self.device_info_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        self.device_info_frame.grid(row=0, column=0, sticky="nsew", padx=0)
         
         self.device_info_text = tk.Text(self.device_info_frame, height=7, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
         self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
-
-        # Cột 2: Terminal Log
-        self.log_frame = tk.LabelFrame(bottom_container, text="Log:", font=("Arial", 7, "bold"), bg="#121212", fg="#00e676")
-        self.log_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
-
-        self.log_text = tk.Text(self.log_frame, height=7, font=("Courier", 7), bg="#1e1e1e", fg="#00e676", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
-        self.log_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
-
-        # Chuyển hướng Terminal (stdout/stderr) vào GUI
-        class Redirector:
-            def __init__(self, text_widget, root_ref):
-                self.text_widget = text_widget
-                self.root = root_ref
-            def write(self, string):
-                def append():
-                    try:
-                        self.text_widget.config(state=tk.NORMAL)
-                        self.text_widget.insert(tk.END, string)
-                        self.text_widget.see(tk.END) # Tự động cuộn xuống dòng mới nhất
-                        self.text_widget.config(state=tk.DISABLED)
-                    except Exception: pass
-                self.root.after(0, append) # Sử dụng thread-safe để tránh treo phần mềm
-            def flush(self): pass
-            def isatty(self): return False
-
-        sys.stdout = Redirector(self.log_text, self.root)
-        sys.stderr = Redirector(self.log_text, self.root)
 
         self.status_label = tk.Label(root, text="Trạng thái: Sẵn sàng", fg="#a0a0a0", bg="#121212", font=("Arial", 7))
         self.status_label.pack(side=tk.BOTTOM, pady=8)
@@ -278,7 +250,7 @@ class AntiDetectGUI:
         elif "1.6" in scale_str: self.current_scale = 1.6
         else: self.current_scale = 1.0
 
-        new_w = int(800 * self.current_scale)
+        new_w = int(400 * self.current_scale)
         new_h = int(540 * self.current_scale)
         self.root.geometry(f"{new_w}x{new_h}")
 
@@ -803,12 +775,16 @@ class AntiDetectGUI:
         self.device_info_text.config(state=tk.NORMAL)
         self.device_info_text.delete(1.0, tk.END)
         if profile:
+            ua = profile.get('user_agent') or 'Sử dụng UA chuẩn của máy'
+            if len(ua) > 35:
+                ua = ua[:35] + "..."
+                
             info_str = (
                 f"Hệ điều hành : {profile.get('platform', 'N/A')} (Mobile: {profile.get('is_mobile', False)})\n"
                 f"Độ phân giải : {profile['viewport']['width']}x{profile['viewport']['height']}\n"
                 f"Múi giờ      : {profile['timezone_id']}\n"
                 f"Ngôn ngữ     : {profile['locale']}\n"
-                f"User-Agent   : {profile.get('user_agent') or 'Sử dụng UA chuẩn của máy'}\n"
+                f"User-Agent   : {ua}\n"
                 f"File chạy    : {profile.get('executable_path', 'Đang chờ khởi chạy...')}"
             )
             self.device_info_text.insert(tk.END, info_str)
@@ -999,12 +975,13 @@ class AntiDetectGUI:
         finally:
             def on_browser_thread_exit():
                 self.set_ui_for_browser_state(False)
-                # Bắt buộc người dùng phải bấm Xóa Session khi trình duyệt tắt để dọn temp & chuyển sang thiết bị tiếp theo
+                # Tự động dọn dẹp khi trình duyệt tắt để dọn temp & chuyển sang thiết bị tiếp theo
                 if hasattr(self, '_is_wiping') and not self._is_wiping:
                     self.btn_ip_that.config(state=tk.DISABLED)
                     self.btn_proxy.config(state=tk.DISABLED)
-                    self.btn_delete.config(state=tk.NORMAL)
-                    self.status_label.config(text="Trạng thái: Trình duyệt đã đóng. Vui lòng bấm 'Delete' để dọn dẹp.", fg=self.get_color("#ff5252"))
+                    self.btn_delete.config(state=tk.DISABLED)
+                    self.status_label.config(text="Trạng thái: Trình duyệt đã đóng. Đang tự động dọn dẹp...", fg=self.get_color("#ffb74d"))
+                    self.delete_session()
             self.root.after(0, on_browser_thread_exit)
 
     def launch_ip_that(self, headless=False):
@@ -1026,7 +1003,7 @@ class AntiDetectGUI:
         prog_win.withdraw()
         prog_win.title("Đang dọn dẹp...")
         
-        dialog_w = int(420 * self.current_scale)
+        dialog_w = int(380 * self.current_scale)
         dialog_h = int(150 * self.current_scale)
         self.root.update_idletasks()
         
@@ -1046,7 +1023,7 @@ class AntiDetectGUI:
 
         tk.Label(prog_win, text="Đang tiêu hủy dấu vết, Cookie, Lịch sử...", font=("Arial", 10, "bold"), fg="#ff5252", bg="#121212").pack(pady=10)
 
-        progress = ttk.Progressbar(prog_win, orient=tk.HORIZONTAL, length=int(380*self.current_scale), mode='determinate')
+        progress = ttk.Progressbar(prog_win, orient=tk.HORIZONTAL, length=int(340*self.current_scale), mode='determinate')
         progress.pack(pady=5)
 
         file_label = tk.Label(prog_win, text="Khởi tạo...", font=("Courier", 8), fg="#ffb74d", bg="#121212")

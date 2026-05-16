@@ -259,51 +259,17 @@ class BrowserEngine:
                     });
                 """)
 
-                def check_server_load(url_str):
-                    import urllib.request
-                    from urllib.parse import urlparse
-                    try:
-                        domain = urlparse(url_str).netloc
-                        if "google.com/search" in url_str and "q=" in url_str:
-                            from urllib.parse import parse_qs
-                            query = parse_qs(urlparse(url_str).query)
-                            if 'q' in query:
-                                target = query['q'][0]
-                                domain = target.replace("https://", "").replace("http://", "").split("/")[0]
-
-                        if not domain: return "N/A"
-                        check_url = f"https://{domain}"
-                        start_time = time.time()
-                        req = urllib.request.Request(check_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-                        with urllib.request.urlopen(req, timeout=5) as response:
-                            response.read(1024)
-                        elapsed = time.time() - start_time
-                        if elapsed < 0.2: score = random.randint(1, 10)
-                        elif elapsed < 0.5: score = random.randint(11, 30)
-                        elif elapsed < 1.0: score = random.randint(31, 50)
-                        elif elapsed < 2.0: score = random.randint(51, 75)
-                        elif elapsed < 4.0: score = random.randint(76, 90)
-                        else: score = random.randint(91, 99)
-                        return f"{score}/100"
-                    except Exception:
-                        return "Sập/Lỗi"
-
                 def on_page_load(p):
                     try:
                         url_str = p.url
                         if url_str and not url_str.startswith("about:") and not url_str.startswith("chrome-error:"):
-                            def check_and_log():
-                                score = check_server_load(url_str)
-                                total = self.req_stats['total']
-                                finished = self.req_stats['finished']
-                                percent = int((finished / total) * 100) if total > 0 else 100
-                                print(f"\n[*] Đang mở trang: {url_str}\n    -> Tải gói: {percent}% ({finished}/{total}) | Phản hồi Server: {score}")
-                            threading.Thread(target=check_and_log, daemon=True).start()
-                            
-                            if url_str.rstrip("/") == "https://moneytask.top":
+                            url_clean = url_str.rstrip("/").split("?")[0]
+                            if url_clean == "https://moneytask.top":
                                 self._pending_action = "wait_and_go_login"
-                            elif url_str.rstrip("/") == "https://moneytask.top/login":
+                            elif url_clean == "https://moneytask.top/login":
                                 self._pending_action = "fill_login"
+                            elif url_clean == "https://moneytask.top/app":
+                                self._pending_action = "wait_and_go_tasks"
                     except Exception:
                         pass
 
@@ -324,14 +290,14 @@ class BrowserEngine:
                     # 1. Khởi động ở trang trắng (cho trình duyệt vài giây để áp dụng toàn bộ thông số ẩn danh)
                     print("[*] Đang làm ấm trình duyệt...")
                     page.goto("about:blank")
-                    page.wait_for_timeout(random.randint(1000, 2000))
+                    page.wait_for_timeout(random.randint(500, 1000))
                     
                     # 2. Truy cập Google theo kịch bản tùy chỉnh thay vì truy cập thẳng link đích
                     print("[*] Truy cập Google...")
                     # Sử dụng domcontentloaded thay vì chờ load xong tất cả ảnh/mạng để giảm tỷ lệ bị Google nghi ngờ
                     page.goto("https://www.google.com/", wait_until="domcontentloaded", timeout=90000)
                     page.wait_for_load_state("domcontentloaded")
-                    page.wait_for_timeout(random.randint(650, 1650))
+                    page.wait_for_timeout(random.randint(325, 825))
                     
                     try:
                         print("[*] Đang mô phỏng hành vi con người (Mouse & Scroll)...")
@@ -339,7 +305,7 @@ class BrowserEngine:
                             x = random.randint(100, v_width - 100)
                             y = random.randint(100, v_height - 100)
                             page.mouse.move(x, y, steps=random.randint(3, 10))
-                            page.wait_for_timeout(random.randint(65, 330))
+                            page.wait_for_timeout(random.randint(30, 165))
                     except Exception:
                         pass
                         
@@ -352,14 +318,14 @@ class BrowserEngine:
                         # Click vào ô tìm kiếm để mô phỏng người thật
                         page.click(search_selector)
                         self.auto_action_count += 1
-                        page.wait_for_timeout(random.randint(330, 1000))
+                        page.wait_for_timeout(random.randint(165, 500))
                         
                         # Sử dụng hàm type thay vì fill để gõ từng chữ cái với khoảng trễ delay (như người gõ phím)
                         print("[*] Đang gõ từ khóa: moneytask.top")
-                        page.type(search_selector, "moneytask.top", delay=random.randint(100, 260))
+                        page.type(search_selector, "moneytask.top", delay=random.randint(50, 130))
                         self.auto_action_count += 13 # 13 kí tự
                         
-                        page.wait_for_timeout(random.randint(530, 1000))
+                        page.wait_for_timeout(random.randint(265, 500))
                         
                         print("[*] Đang nhấn Enter...")
                         page.press(search_selector, "Enter")
@@ -438,6 +404,14 @@ class BrowserEngine:
                             try:
                                 active_p = self.context.pages[-1]
                                 
+                                # --- THEO DÕI URL ĐỂ KÍCH HOẠT LỆNH (Bắt chuyển hướng ngầm SPA không cần Tải lại trang) ---
+                                current_url_clean = active_p.url.rstrip("/").split("?")[0]
+                                if getattr(self, '_last_seen_url', '') != current_url_clean:
+                                    self._last_seen_url = current_url_clean
+                                    if current_url_clean == "https://moneytask.top/app":
+                                        self._pending_action = "wait_and_go_tasks"
+                                # -----------------------------------------------------------------------------------------
+                                
                                 # 1. Dạng Checkbox Cloudflare Turnstile nằm trong iframe
                                 cf_frame = active_p.frame_locator("iframe[src*='challenges.cloudflare.com'], iframe[src*='turnstile']").first
                                 cf_checkbox = cf_frame.locator("label.ctp-checkbox-label, input[type='checkbox'], .mark, #challenge-stage").first
@@ -490,12 +464,23 @@ class BrowserEngine:
                                 self._pending_action = None
                                 try:
                                     active_page = self.context.pages[-1]
-                                    print("[*] Đã tải xong moneytask.top. Đang chờ 1 giây trước khi tự động chuyển trang đăng nhập...")
-                                    active_page.wait_for_timeout(1000)
+                                    print("[*] Đã tải xong moneytask.top. Đang chờ 0.5 giây trước khi tự động chuyển trang đăng nhập...")
+                                    active_page.wait_for_timeout(500)
                                     active_page.goto("https://moneytask.top/login", wait_until="domcontentloaded", timeout=60000)
                                     self.auto_action_count += 1
                                 except Exception as ex:
                                     print(f"[!] Lỗi khi tự động chuyển trang login: {ex}")
+                                    
+                            elif getattr(self, '_pending_action', None) == "wait_and_go_tasks":
+                                self._pending_action = None
+                                try:
+                                    active_page = self.context.pages[-1]
+                                    print("[*] Đã vào trang Home. Đang chờ 1.5 giây trước khi tự động chuyển sang trang nhiệm vụ...")
+                                    active_page.wait_for_timeout(1500)
+                                    active_page.goto("https://moneytask.top/app/tasks/link-rut-gon", wait_until="domcontentloaded", timeout=60000)
+                                    self.auto_action_count += 1
+                                except Exception as ex:
+                                    print(f"[!] Lỗi khi tự động chuyển trang nhiệm vụ: {ex}")
                                     
                             elif getattr(self, '_pending_action', None) == "fill_login":
                                 self._pending_action = None
@@ -504,7 +489,7 @@ class BrowserEngine:
                                 else:
                                     try:
                                         active_page = self.context.pages[-1]
-                                        active_page.wait_for_timeout(1000) # Đợi trang login load một chút trước khi điền
+                                        active_page.wait_for_timeout(500) # Đợi trang login load một chút trước khi điền
                                         # Tìm tab có chứa form đăng nhập (ưu tiên tab có ô input password) để tránh bị lỗi do quảng cáo
                                         target_page = None
                                         for p in reversed(self.context.pages):
@@ -579,22 +564,23 @@ class BrowserEngine:
                                         self.auto_action_count += 5
                                         print("[*] Đã điền xong số điện thoại và mật khẩu!")
                                         
-                                        target_page.wait_for_timeout(500)
+                                        target_page.wait_for_timeout(250)
                                         
                                         print("[*] Đang tự động tìm và nhấn nút Đăng nhập...")
                                         try:
                                             btn_selectors = "button[type='submit'], button:has-text('Đăng nhập'), button:has-text('Đăng Nhập'), button:has-text('Login'), input[type='submit']"
                                             target_page.click(btn_selectors, timeout=4000)
                                             self.auto_action_count += 1
-                                            print("[*] Đã nhấn nút Đăng nhập. Đang kiểm tra kết quả (chờ tối đa 5s)...")
+                                            print("[*] Đã nhấn nút Đăng nhập. Đang kiểm tra kết quả (chờ tối đa 3s)...")
                                             
                                             try:
-                                                # Đợi 5s xem URL có thoát khỏi trang login (để vào home) hay không
-                                                target_page.wait_for_function("window.location.href.indexOf('login') === -1", timeout=5000)
+                                                # Đợi 3s xem URL có thoát khỏi trang login (để vào home) hay không
+                                                target_page.wait_for_function("window.location.href.indexOf('login') === -1", timeout=3000)
                                                 print("[*] Đăng nhập thành công, đã vào trang Home!")
                                                 self.login_retry_count = 0  # Reset bộ đếm thử lại nếu thành công
+                                                self._pending_action = "wait_and_go_tasks"
                                             except Exception:
-                                                print("[-] Sau 5s vẫn chưa vào được trang Home.")
+                                                print("[-] Sau 3s vẫn chưa vào được trang Home.")
                                                 self.login_retry_count = getattr(self, 'login_retry_count', 0) + 1
                                                 if self.login_retry_count <= 3:
                                                     print(f"[*] Đang tải lại trang (F5) và thử đăng nhập lại (Lần {self.login_retry_count})...")
