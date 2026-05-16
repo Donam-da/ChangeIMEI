@@ -816,6 +816,7 @@ class AntiDetectGUI:
             self.btn_auto_login.config(state=tk.DISABLED)
             self.btn_auto_task.config(state=tk.DISABLED)
             self.btn_auto_task_step.config(state=tk.DISABLED)
+            self.analysis_label.config(text="🔍 Phân tích mạng: Đang chờ thao tác...", fg=self.get_color("#ffff00"))
 
     def trigger_auto_login(self):
         """Gửi lệnh điền tài khoản đến luồng duyệt web"""
