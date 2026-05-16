@@ -88,11 +88,11 @@ class AntiDetectGUI:
 
         btn_style = {"font": ("Arial", 8, "bold"), "relief": tk.FLAT, "activebackground": "#00e5ff", "activeforeground": "black"}
 
-        self.btn_ip_that = tk.Button(btn_frame, text="🚀 Mở Trình Duyệt (IP Thật)", 
+        self.btn_ip_that = tk.Button(btn_frame, text="Mở Trình Duyệt", 
                                      command=self.launch_ip_that, bg="#00bcd4", fg="black", width=18, **btn_style)
         self.btn_ip_that.grid(row=0, column=0, padx=4, pady=4)
         
-        self.btn_proxy = tk.Button(btn_frame, text="🌐 Mở Trình Duyệt (Proxy)", 
+        self.btn_proxy = tk.Button(btn_frame, text="Proxy nếu có", 
                                    command=self.launch_proxy, bg="#00838f", fg="white", width=18, **btn_style)
         self.btn_proxy.grid(row=0, column=1, padx=4, pady=4)
 
