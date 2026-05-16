@@ -168,12 +168,43 @@ class AntiDetectGUI:
                  font=("Arial", 7), fg="#4dd0e1", bg="#121212", justify=tk.LEFT).pack(anchor='w', pady=(2,0))
         # --- Kết thúc ---
 
-        # --- Hiển thị thông số cấu hình giả lập ---
-        self.device_info_frame = tk.LabelFrame(root, text="Chi tiết trình duyệt ẩn danh vừa tạo:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
-        self.device_info_frame.pack(pady=(8, 0), fill=tk.BOTH, expand=False, padx=15)
+        # --- Container cho 2 khung (Thiết bị và Log) ---
+        bottom_container = tk.Frame(root, bg="#121212")
+        bottom_container.pack(pady=(8, 0), fill=tk.BOTH, expand=True, padx=15)
+
+        # Cột 1: Hiển thị thông số cấu hình giả lập
+        self.device_info_frame = tk.LabelFrame(bottom_container, text="Chi tiết trình duyệt ẩn danh vừa tạo:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
+        self.device_info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
         
-        self.device_info_text = tk.Text(self.device_info_frame, height=5, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
+        self.device_info_text = tk.Text(self.device_info_frame, height=6, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
         self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+
+        # Cột 2: Terminal Log
+        self.log_frame = tk.LabelFrame(bottom_container, text="Log:", font=("Arial", 7, "bold"), bg="#121212", fg="#00e676")
+        self.log_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+
+        self.log_text = tk.Text(self.log_frame, height=6, font=("Courier", 7), bg="#1e1e1e", fg="#00e676", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
+        self.log_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+
+        # Chuyển hướng Terminal (stdout/stderr) vào GUI
+        class Redirector:
+            def __init__(self, text_widget, root_ref):
+                self.text_widget = text_widget
+                self.root = root_ref
+            def write(self, string):
+                def append():
+                    try:
+                        self.text_widget.config(state=tk.NORMAL)
+                        self.text_widget.insert(tk.END, string)
+                        self.text_widget.see(tk.END) # Tự động cuộn xuống dòng mới nhất
+                        self.text_widget.config(state=tk.DISABLED)
+                    except Exception: pass
+                self.root.after(0, append) # Sử dụng thread-safe để tránh treo phần mềm
+            def flush(self): pass
+            def isatty(self): return False
+
+        sys.stdout = Redirector(self.log_text, self.root)
+        sys.stderr = Redirector(self.log_text, self.root)
 
         self.status_label = tk.Label(root, text="Trạng thái: Sẵn sàng", fg="#a0a0a0", bg="#121212", font=("Arial", 7))
         self.status_label.pack(side=tk.BOTTOM, pady=8)
