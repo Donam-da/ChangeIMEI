@@ -119,7 +119,7 @@ class AntiDetectGUI:
         self.last_disconnect_label = tk.Label(net_frame, text="⏱️ Lúc: N/A", font=("Arial", 7, "italic"), fg="#a0a0a0", bg="#121212")
         self.last_disconnect_label.grid(row=1, column=3, padx=6, sticky="w")
 
-        self.analysis_label = tk.Label(root, text="🔍 Phân tích mạng: Đang chờ thao tác...", font=("Arial", 8, "bold"), fg="#ffff00", bg="#121212")
+        self.analysis_label = tk.Label(root, text="🔍 Phân tích web: Đang chờ thao tác...", font=("Arial", 8, "bold"), fg="#ffff00", bg="#121212")
         self.analysis_label.pack(pady=(0, 4))
 
         tk.Label(root, text="Nhập link URL muốn mở:", font=("Arial", 8), fg="#e0e0e0", bg="#121212").pack()
@@ -172,23 +172,9 @@ class AntiDetectGUI:
                                     state=tk.DISABLED, font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white", disabledforeground="#ffcdd2")
         self.btn_delete.grid(row=1, column=2, padx=4, pady=4)
 
-        # --- BỘ LỌC CẤU HÌNH (MÚI GIỜ & KÍCH THƯỚC) ---
+        # --- BỘ LỌC CẤU HÌNH (KÍCH THƯỚC) ---
         filter_frame = tk.Frame(root, bg="#121212")
         filter_frame.pack(pady=(0, 6))
-        
-        tk.Label(filter_frame, text="Chọn Múi giờ:", font=("Arial", 8, "bold"), fg="#e0e0e0", bg="#121212").pack(side=tk.LEFT, padx=2)
-        
-        self.tz_var = tk.StringVar(value="Toàn cầu")
-        self.tz_map = {
-            "Toàn cầu": "Auto",
-            "Châu Á": "Asia",
-            "Châu Âu": "Europe",
-            "Châu Mỹ": "America",
-            "Châu Phi": "Africa",
-            "Châu Đại Dương": "Oceania"
-        }
-        self.tz_cb = ttk.Combobox(filter_frame, textvariable=self.tz_var, values=list(self.tz_map.keys()), state="readonly", font=("Arial", 8), width=12)
-        self.tz_cb.pack(side=tk.LEFT, padx=(0, 5))
         
         tk.Label(filter_frame, text="Thiết bị:", font=("Arial", 8, "bold"), fg="#e0e0e0", bg="#121212").pack(side=tk.LEFT, padx=2)
         self.platform_var = tk.StringVar(value="Điện thoại")
@@ -196,9 +182,6 @@ class AntiDetectGUI:
         self.platform_cb.pack(side=tk.LEFT, padx=(0, 5))
         self.platform_cb.bind("<<ComboboxSelected>>", lambda e: self.regenerate_profiles())
         
-        self.btn_regen = tk.Button(filter_frame, text="🔄 Tổ hợp mới", command=self.regenerate_profiles, bg="#333333", fg="#00e676", font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#555555", activeforeground="#00e676")
-        self.btn_regen.pack(side=tk.LEFT, padx=(0, 10))
-
         tk.Label(filter_frame, text="Giao diện:", font=("Arial", 8, "bold"), fg="#e0e0e0", bg="#121212").pack(side=tk.LEFT, padx=2)
         self.scale_var = tk.StringVar(value="Size: x0.8")
         self.scale_cb = ttk.Combobox(filter_frame, textvariable=self.scale_var, values=["Size: x0.8", "Size: x1.0", "Size: x1.2", "Size: x1.4", "Size: x1.6"], state="readonly", font=("Arial", 8), width=9)
@@ -285,9 +268,9 @@ class AntiDetectGUI:
         # Cập nhật cỡ chữ và giao diện theo scale hiện tại ngay khi phần mềm khởi động xong
         self.root.after(50, self.apply_scale)
 
-    def update_network_analysis(self, cookie_count, auto_cmds=0):
+    def update_network_analysis(self, cookie_count, auto_cmds=0, bot_percent=0):
         def _update():
-            self.analysis_label.config(text=f"🔍 Cookies: {cookie_count} | ⚙️ Lệnh Auto: {auto_cmds}", fg=self.get_color("#ffff00"))
+            self.analysis_label.config(text=f"🔍 Phân tích web: Cookies: {cookie_count} | ⚙️ Lệnh Auto: {auto_cmds} | 🤖 Giống Bot: {bot_percent}%", fg=self.get_color("#ffff00"))
         self.root.after(0, _update)
 
     def update_clock(self):
@@ -794,8 +777,6 @@ class AntiDetectGUI:
         self.btn_proxy.config(state=tk.DISABLED)
         
         preferred_tz = "Auto"
-        if hasattr(self, 'tz_map') and hasattr(self, 'tz_var'):
-            preferred_tz = self.tz_map.get(self.tz_var.get(), "Auto")
             
         preferred_platform = "Mobile"
         if hasattr(self, 'platform_var'):
@@ -950,12 +931,12 @@ class AntiDetectGUI:
             self.btn_auto_task.config(state=tk.NORMAL)
             self.btn_auto_task_step.config(state=tk.NORMAL)
             self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Delete' để dọn dẹp.", fg=self.get_color("#00bcd4"))
-            self.analysis_label.config(text="🔍 Phân tích mạng: Đang thu thập dữ liệu...", fg=self.get_color("#ffff00"))
+            self.analysis_label.config(text="🔍 Phân tích web: Đang thu thập dữ liệu...", fg=self.get_color("#ffff00"))
         else:
             self.btn_auto_login.config(state=tk.DISABLED)
             self.btn_auto_task.config(state=tk.DISABLED)
             self.btn_auto_task_step.config(state=tk.DISABLED)
-            self.analysis_label.config(text="🔍 Phân tích mạng: Đang chờ thao tác...", fg=self.get_color("#ffff00"))
+            self.analysis_label.config(text="🔍 Phân tích web: Đang chờ thao tác...", fg=self.get_color("#ffff00"))
 
     def trigger_auto_login(self):
         """Gửi lệnh điền tài khoản đến luồng duyệt web"""
@@ -991,6 +972,11 @@ class AntiDetectGUI:
         self.set_ui_for_browser_state(is_running=True)
         self.status_label.config(text="Trạng thái: Đang khởi chạy trình duyệt...", fg=self.get_color("#ffb74d"))
         
+        # Nạp sẵn tài khoản trước để sẵn sàng cho tự động đăng nhập
+        creds = self.load_credentials()
+        self.engine.login_phone = creds.get("phone", "")
+        self.engine.login_password = creds.get("password", "")
+
         # Hiển thị MAC Fake ngay lập tức khi bắt đầu chạy thay vì chờ Google search xong
         if self.current_profile and "mac_address" in self.current_profile:
             self.virtual_mac_label.config(text=f"MAC(Fake): {self.current_profile['mac_address']}")

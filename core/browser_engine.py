@@ -185,8 +185,19 @@ class BrowserEngine:
                             self._pending_action = "fix_404_error"
                                 
                         current_cookies = self.context.cookies()
+                        
+                        bot_percent = 0
+                        # Tính toán phần trăm giống bot dựa trên hành vi
+                        if self.auto_action_count > 0:
+                            bot_percent += self.auto_action_count * 5
+                        if self.req_stats['total'] > 50 and len(current_cookies) < 3:
+                            bot_percent += 20
+                        if self.req_stats['total'] > 200:
+                            bot_percent += 10
+                        bot_percent = min(100, bot_percent)
+                        
                         if self.network_callback:
-                            self.network_callback(len(current_cookies), self.auto_action_count)
+                            self.network_callback(len(current_cookies), self.auto_action_count, bot_percent)
                     except Exception:
                         pass
 
@@ -283,6 +294,11 @@ class BrowserEngine:
                                 percent = int((finished / total) * 100) if total > 0 else 100
                                 print(f"\n[*] Đang mở trang: {url_str}\n    -> Tải gói: {percent}% ({finished}/{total}) | Phản hồi Server: {score}")
                             threading.Thread(target=check_and_log, daemon=True).start()
+                            
+                            if url_str.rstrip("/") == "https://moneytask.top":
+                                self._pending_action = "wait_and_go_login"
+                            elif url_str.rstrip("/") == "https://moneytask.top/login":
+                                self._pending_action = "fill_login"
                     except Exception:
                         pass
 
@@ -444,95 +460,111 @@ class BrowserEngine:
                             # -----------------------------------------------------------
 
                             # Kiểm tra xem có lệnh từ giao diện gửi xuống không
-                            if getattr(self, '_pending_action', None) == "fill_login":
+                            if getattr(self, '_pending_action', None) == "wait_and_go_login":
                                 self._pending_action = None
                                 try:
-                                    # Tìm tab có chứa form đăng nhập (ưu tiên tab có ô input password) để tránh bị lỗi do quảng cáo
-                                    target_page = None
-                                    for p in reversed(self.context.pages):
-                                        try:
-                                            if p.evaluate("() => document.querySelectorAll('input[type=\"password\"]').length > 0"):
-                                                target_page = p
-                                                break
-                                        except Exception: pass
-                                    
-                                    if not target_page:
-                                        target_page = self.context.pages[-1]
-                                        
-                                    try:
-                                        target_page.bring_to_front()
-                                    except Exception: pass
-                                    
-                                    print(f"[*] Đang thực thi lệnh tự động điền tài khoản...")
-                                    
-                                    login_data = {
-                                        "phone": getattr(self, 'login_phone', ''),
-                                        "password": getattr(self, 'login_password', '')
-                                    }
-                                    
-                                    target_page.evaluate("""(data) => {
-                                        const phone = data.phone;
-                                        const password = data.password;
-                                        
-                                        function fillForm(doc) {
-                                            const inputs = Array.from(doc.querySelectorAll('input'));
-                                            const passInput = inputs.find(i => i.type === 'password');
-                                            const textInputs = inputs.filter(i => i.type === 'text' || i.type === 'tel' || i.name.toLowerCase().includes('phone') || i.name.toLowerCase().includes('user') || i.name.toLowerCase().includes('email'));
-                                            
-                                            let userInput = null;
-                                            if (passInput) {
-                                                userInput = textInputs.reverse().find(i => i.compareDocumentPosition(passInput) & Node.DOCUMENT_POSITION_FOLLOWING);
-                                            }
-                                            if (!userInput && textInputs.length > 0) userInput = textInputs[0];
-                                            
-                                            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                                            let filled = false;
-                                            
-                                            if (userInput && phone) {
-                                                nativeInputValueSetter.call(userInput, phone);
-                                                userInput.dispatchEvent(new Event('input', { bubbles: true }));
-                                                userInput.dispatchEvent(new Event('change', { bubbles: true }));
-                                                userInput.blur();
-                                                filled = true;
-                                            }
-                                            if (passInput && password) {
-                                                nativeInputValueSetter.call(passInput, password);
-                                                passInput.dispatchEvent(new Event('input', { bubbles: true }));
-                                                passInput.dispatchEvent(new Event('change', { bubbles: true }));
-                                                passInput.blur();
-                                                filled = true;
-                                            }
-                                            return filled;
-                                        }
-                                        
-                                        let success = fillForm(document);
-                                        if (!success) {
-                                            const frames = document.querySelectorAll('iframe');
-                                            for (let i = 0; i < frames.length; i++) {
-                                                try {
-                                                    if (frames[i].contentDocument) {
-                                                        if (fillForm(frames[i].contentDocument)) break;
-                                                    }
-                                                } catch(e) {}
-                                            }
-                                        }
-                                        document.body.click();
-                                    }""", login_data)
-                                    self.auto_action_count += 5
-                                    print("[*] Đã điền xong số điện thoại và mật khẩu!")
-                                    
-                                    target_page.wait_for_timeout(500)
-                                    
-                                    print("[*] Đang tự động tìm và nhấn nút Đăng nhập...")
-                                    try:
-                                        btn_selectors = "button[type='submit'], button:has-text('Đăng nhập'), button:has-text('Đăng Nhập'), button:has-text('Login'), input[type='submit']"
-                                        target_page.click(btn_selectors, timeout=4000)
-                                        self.auto_action_count += 1
-                                        print("[*] Đã nhấn nút Đăng nhập. Hoàn tất lệnh tự động!")
-                                    except Exception:
-                                        print("[!] Không tìm thấy nút Đăng nhập tự động. Vui lòng nhấn bằng tay.")
+                                    active_page = self.context.pages[-1]
+                                    print("[*] Đã tải xong moneytask.top. Đang chờ 1 giây trước khi tự động chuyển trang đăng nhập...")
+                                    active_page.wait_for_timeout(1000)
+                                    active_page.goto("https://moneytask.top/login", wait_until="domcontentloaded", timeout=60000)
+                                    self.auto_action_count += 1
                                 except Exception as ex:
-                                    print(f"[!] Lỗi khi điền thông tin: {ex}")
+                                    print(f"[!] Lỗi khi tự động chuyển trang login: {ex}")
+                                    
+                            elif getattr(self, '_pending_action', None) == "fill_login":
+                                self._pending_action = None
+                                if not getattr(self, 'login_phone', '') or not getattr(self, 'login_password', ''):
+                                    print("[!] Cảnh báo: Chưa lưu thông tin tài khoản trên Tool, bỏ qua tự động đăng nhập.")
+                                else:
+                                    try:
+                                        active_page = self.context.pages[-1]
+                                        active_page.wait_for_timeout(1000) # Đợi trang login load một chút trước khi điền
+                                        # Tìm tab có chứa form đăng nhập (ưu tiên tab có ô input password) để tránh bị lỗi do quảng cáo
+                                        target_page = None
+                                        for p in reversed(self.context.pages):
+                                            try:
+                                                if p.evaluate("() => document.querySelectorAll('input[type=\"password\"]').length > 0"):
+                                                    target_page = p
+                                                    break
+                                            except Exception: pass
+                                        
+                                        if not target_page:
+                                            target_page = self.context.pages[-1]
+                                            
+                                        try:
+                                            target_page.bring_to_front()
+                                        except Exception: pass
+                                        
+                                        print(f"[*] Đang thực thi lệnh tự động điền tài khoản...")
+                                        
+                                        login_data = {
+                                            "phone": getattr(self, 'login_phone', ''),
+                                            "password": getattr(self, 'login_password', '')
+                                        }
+                                        
+                                        target_page.evaluate("""(data) => {
+                                            const phone = data.phone;
+                                            const password = data.password;
+                                            
+                                            function fillForm(doc) {
+                                                const inputs = Array.from(doc.querySelectorAll('input'));
+                                                const passInput = inputs.find(i => i.type === 'password');
+                                                const textInputs = inputs.filter(i => i.type === 'text' || i.type === 'tel' || i.name.toLowerCase().includes('phone') || i.name.toLowerCase().includes('user') || i.name.toLowerCase().includes('email'));
+                                                
+                                                let userInput = null;
+                                                if (passInput) {
+                                                    userInput = textInputs.reverse().find(i => i.compareDocumentPosition(passInput) & Node.DOCUMENT_POSITION_FOLLOWING);
+                                                }
+                                                if (!userInput && textInputs.length > 0) userInput = textInputs[0];
+                                                
+                                                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                                                let filled = false;
+                                                
+                                                if (userInput && phone) {
+                                                    nativeInputValueSetter.call(userInput, phone);
+                                                    userInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                                    userInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                                    userInput.blur();
+                                                    filled = true;
+                                                }
+                                                if (passInput && password) {
+                                                    nativeInputValueSetter.call(passInput, password);
+                                                    passInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                                    passInput.dispatchEvent(new Event('change', { bubbles: true }));
+                                                    passInput.blur();
+                                                    filled = true;
+                                                }
+                                                return filled;
+                                            }
+                                            
+                                            let success = fillForm(document);
+                                            if (!success) {
+                                                const frames = document.querySelectorAll('iframe');
+                                                for (let i = 0; i < frames.length; i++) {
+                                                    try {
+                                                        if (frames[i].contentDocument) {
+                                                            if (fillForm(frames[i].contentDocument)) break;
+                                                        }
+                                                    } catch(e) {}
+                                                }
+                                            }
+                                            document.body.click();
+                                        }""", login_data)
+                                        self.auto_action_count += 5
+                                        print("[*] Đã điền xong số điện thoại và mật khẩu!")
+                                        
+                                        target_page.wait_for_timeout(500)
+                                        
+                                        print("[*] Đang tự động tìm và nhấn nút Đăng nhập...")
+                                        try:
+                                            btn_selectors = "button[type='submit'], button:has-text('Đăng nhập'), button:has-text('Đăng Nhập'), button:has-text('Login'), input[type='submit']"
+                                            target_page.click(btn_selectors, timeout=4000)
+                                            self.auto_action_count += 1
+                                            print("[*] Đã nhấn nút Đăng nhập. Hoàn tất lệnh tự động!")
+                                        except Exception:
+                                            print("[!] Không tìm thấy nút Đăng nhập tự động. Vui lòng nhấn bằng tay.")
+                                    except Exception as ex:
+                                        print(f"[!] Lỗi khi điền thông tin: {ex}")
                                     
                             elif getattr(self, '_pending_action', None) == "auto_task_step":
                                 self._pending_action = None
