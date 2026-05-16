@@ -386,6 +386,7 @@ class AntiDetectGUI:
             return
             
         self.cred_dialog = tk.Toplevel(self.root)
+        self.cred_dialog.withdraw() # Ẩn cửa sổ tạm thời để chống chớp trắng
         self.cred_dialog.title("Cài đặt Tài Khoản")
         
         # Tính toán để hộp thoại luôn nằm ngay giữa phần mềm, dù phần mềm đang bị kéo đi đâu
@@ -446,6 +447,7 @@ class AntiDetectGUI:
         
         self._scale_widget_tree(self.cred_dialog, self.current_scale)
         self.apply_current_theme(self.cred_dialog)
+        self.cred_dialog.deiconify() # Hiển thị ra sau khi đã dàn trang xong
 
     def start_ip_monitor(self):
         """Chạy luồng ngầm liên tục kiểm tra IP mạng của máy mỗi 2 giây"""
@@ -549,6 +551,7 @@ class AntiDetectGUI:
     def regenerate_profiles(self):
         if self.engine.playwright is not None or (hasattr(self, '_is_wiping') and self._is_wiping):
             dialog = tk.Toplevel(self.root)
+            dialog.withdraw()
             dialog.title("Cảnh báo")
             
             dialog_w = int(350 * self.current_scale)
@@ -571,6 +574,7 @@ class AntiDetectGUI:
             
             self._scale_widget_tree(dialog, self.current_scale)
             self.apply_current_theme(dialog)
+            dialog.deiconify()
             return
         self.show_initialization()
 
@@ -580,6 +584,7 @@ class AntiDetectGUI:
         self.btn_proxy.config(state=tk.DISABLED)
         
         prog_win = tk.Toplevel(self.root)
+        prog_win.withdraw()
         prog_win.title("Đang nạp môi trường...")
         
         dialog_w = int(420 * self.current_scale)
@@ -608,6 +613,7 @@ class AntiDetectGUI:
         
         self._scale_widget_tree(prog_win, self.current_scale)
         self.apply_current_theme(prog_win)
+        prog_win.deiconify()
         
         steps = [
             "Đang sinh dữ liệu thiết bị 1/5...",
@@ -689,6 +695,7 @@ class AntiDetectGUI:
     def show_auto_close_dialog(self):
         """Hiển thị hộp thoại đếm ngược 3s trước khi tự động dọn dẹp và thoát."""
         dialog = tk.Toplevel(self.root)
+        dialog.withdraw()
         dialog.title("Cảnh báo thoát")
         
         dialog_w = int(380 * self.current_scale)
@@ -741,6 +748,7 @@ class AntiDetectGUI:
         
         self._scale_widget_tree(dialog, self.current_scale)
         self.apply_current_theme(dialog)
+        dialog.deiconify()
 
         def tick(time_left):
             if not countdown_active[0] or not dialog.winfo_exists():
@@ -873,6 +881,7 @@ class AntiDetectGUI:
         
         # Tạo cửa sổ hiển thị tiến trình
         prog_win = tk.Toplevel(self.root)
+        prog_win.withdraw()
         prog_win.title("Đang dọn dẹp...")
         
         dialog_w = int(420 * self.current_scale)
@@ -901,6 +910,7 @@ class AntiDetectGUI:
         
         self._scale_widget_tree(prog_win, self.current_scale)
         self.apply_current_theme(prog_win)
+        prog_win.deiconify()
 
         # Các thành phần dữ liệu trình duyệt bị xóa khỏi RAM
         items_to_wipe = [
