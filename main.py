@@ -18,9 +18,10 @@ class AntiDetectGUI:
         self.root = root
         self.root.title("ChangeIMEI Anti-Detect Browser")
         
+        self.current_scale = 0.8
         # Căn giữa cửa sổ phần mềm chính trên màn hình lúc mới bật
-        window_w = 800
-        window_h = 540
+        window_w = int(800 * self.current_scale)
+        window_h = int(540 * self.current_scale)
         screen_w = root.winfo_screenwidth()
         screen_h = root.winfo_screenheight()
         pos_x = (screen_w // 2) - (window_w // 2)
@@ -53,7 +54,6 @@ class AntiDetectGUI:
         # Thiết kế các thành phần Giao diện (UI)
         tk.Label(root, text="Fix 24h upto", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=10)
         
-        self.current_scale = 1.0
         self.is_pinned = False
         self.btn_pin = tk.Button(root, text="📌 Ghim", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_pin, activebackground="#333333", activeforeground="#00e676")
         self.btn_pin.place(relx=1.0, x=-120, y=15, width=100)
@@ -163,8 +163,8 @@ class AntiDetectGUI:
         self.btn_regen.pack(side=tk.LEFT, padx=(0, 10))
 
         tk.Label(filter_frame, text="Giao diện:", font=("Arial", 8, "bold"), fg="#e0e0e0", bg="#121212").pack(side=tk.LEFT, padx=2)
-        self.scale_var = tk.StringVar(value="Size: x1.0")
-        self.scale_cb = ttk.Combobox(filter_frame, textvariable=self.scale_var, values=["Size: x1.0", "Size: x1.2", "Size: x1.4", "Size: x1.6"], state="readonly", font=("Arial", 8), width=9)
+        self.scale_var = tk.StringVar(value="Size: x0.8")
+        self.scale_cb = ttk.Combobox(filter_frame, textvariable=self.scale_var, values=["Size: x0.8", "Size: x1.0", "Size: x1.2", "Size: x1.4", "Size: x1.6"], state="readonly", font=("Arial", 8), width=9)
         self.scale_cb.pack(side=tk.LEFT)
         self.scale_cb.bind("<<ComboboxSelected>>", self.apply_scale)
         # ---------------------------------
@@ -247,6 +247,9 @@ class AntiDetectGUI:
         # Khởi động luồng theo dõi IP liên tục
         self.start_ip_monitor()
 
+        # Cập nhật cỡ chữ và giao diện theo scale hiện tại ngay khi phần mềm khởi động xong
+        self.root.after(50, self.apply_scale)
+
     def update_network_analysis(self, cookie_count, prob_404, prob_overload=0.0, prob_bot=0.0, auto_cmds=0):
         def _update():
             # Tự động đổi màu cảnh báo nếu bất kỳ thông số rủi ro nào vượt ngưỡng
@@ -263,7 +266,8 @@ class AntiDetectGUI:
     def apply_scale(self, event=None):
         """Áp dụng bộ lọc tỷ lệ phóng to giao diện"""
         scale_str = self.scale_var.get()
-        if "1.2" in scale_str: self.current_scale = 1.2
+        if "0.8" in scale_str: self.current_scale = 0.8
+        elif "1.2" in scale_str: self.current_scale = 1.2
         elif "1.4" in scale_str: self.current_scale = 1.4
         elif "1.6" in scale_str: self.current_scale = 1.6
         else: self.current_scale = 1.0
