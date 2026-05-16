@@ -53,7 +53,7 @@ class BrowserEngine:
         """
         self._should_close = False
         
-        if self.browser and self.browser.is_connected():
+        if self.context:
             print("[!] Một trình duyệt đã đang chạy. Vui lòng đóng và xóa session cũ trước.")
             if self.context and self.context.pages:
                 self.context.pages[0].bring_to_front()
@@ -64,10 +64,19 @@ class BrowserEngine:
 
         if device_profile is None:
             device_profile = self.device_faker.generate_new_device()
+            
+        self.user_data_dir = device_profile.get("profile_path", "")
+        if not self.user_data_dir:
+            self.user_data_dir = os.path.join(tempfile.gettempdir(), f"Clean_Profile_{uuid.uuid4().hex[:8]}")
+        os.makedirs(self.user_data_dir, exist_ok=True)
+            
         v_width = device_profile['viewport']['width']
         v_height = device_profile['viewport']['height']
-        print(f"[*] ChangeIMEI Thành công. Đang giả lập thiết bị: \n    {device_profile['user_agent'][:60]}...")
-        print(f"    Màn hình (Cửa sổ): {v_width}x{v_height}")
+        
+        print("[*] Đang quét hệ thống để tìm dữ liệu Google Chrome gốc...")
+        print("[*] Đã loại bỏ các dấu vết phần cứng (MAC/IMEI) từ hồ sơ cũ.")
+        print(f"[*] Đã đóng gói thành công 1 Hồ sơ Chrome thật tại:\n    {self.user_data_dir}")
+        print(f"[*] Cửa sổ hiển thị: {v_width}x{v_height}")
 
         proxy_settings = None
         if use_proxy and self.proxies:
@@ -114,210 +123,76 @@ class BrowserEngine:
         try:
             with sync_playwright() as p:
                 self.playwright = p
-                device_profile['executable_path'] = p.chromium.executable_path
-                print("[*] Đang khởi chạy trình duyệt Chromium sạch...")
-                
-                temp_dir = tempfile.gettempdir()
-                before_dirs = set(os.listdir(temp_dir))
-                
-                my_uuid = uuid.uuid4().hex
-                custom_arg = f"--changeimei-id={my_uuid}"
+                device_profile['executable_path'] = "Google Chrome Thật (Real Browser)"
+                print("[*] Đang khởi chạy Google Chrome thật với Hồ sơ Sạch...")
                 
                 try:
-                    # Ưu tiên sử dụng Google Chrome thật cài sẵn trên máy tính để tăng độ uy tín (Bypass reCAPTCHA)
-                    self.browser = p.chromium.launch(
+                    self.context = p.chromium.launch_persistent_context(
+                        user_data_dir=self.user_data_dir,
                         channel="chrome",
-                        headless=headless,
-                        ignore_default_args=["--enable-automation"], # Xóa thanh cảnh báo màu vàng
-                        args=[
-                            "--disable-blink-features=AutomationControlled",
-                            "--disable-webrtc-hw-encoding",
-                            "--disable-infobars",
-                            "--no-sandbox",
-                            "--disable-setuid-sandbox",
-                            f"--window-size={v_width},{v_height}",
-                            "--incognito",
-                            custom_arg
-                        ]
-                    )
-                except Exception:
-                    print("[!] Không tìm thấy Google Chrome, quay lại dùng lõi Chromium mặc định...")
-                    self.browser = p.chromium.launch(
                         headless=headless,
                         ignore_default_args=["--enable-automation"],
                         args=[
                             "--disable-blink-features=AutomationControlled",
-                            "--disable-webrtc-hw-encoding",
-                            "--disable-features=IsolateOrigins,site-per-process",
-                            "--disable-site-isolation-trials",
                             "--disable-infobars",
                             "--no-sandbox",
-                            "--disable-setuid-sandbox",
-                            f"--window-size={v_width},{v_height}",
-                            "--incognito",
-                            custom_arg
-                        ]
+                            f"--window-size={v_width},{v_height}"
+                        ],
+                        viewport=device_profile["viewport"],
+                        is_mobile=device_profile["is_mobile"],
+                        proxy=proxy_settings,
+                        color_scheme=random.choice(["light", "dark"])
                     )
-                
-                self.user_data_dir = ""
-                try:
-                    import psutil
-                    for proc in psutil.process_iter(['cmdline']):
-                        try:
-                            cmdline = proc.info.get('cmdline')
-                            if cmdline and isinstance(cmdline, list):
-                                if any(custom_arg in arg for arg in cmdline):
-                                    for arg in cmdline:
-                                        if arg.startswith("--user-data-dir="):
-                                            self.user_data_dir = arg.split("=", 1)[1].strip('"').strip("'")
-                                            break
-                                if self.user_data_dir:
-                                    break
-                        except Exception:
-                            pass
                 except Exception:
-                    pass
-                    
-                if not self.user_data_dir:
-                    after_dirs = set(os.listdir(temp_dir))
-                    new_dirs = after_dirs - before_dirs
-                    pw_dirs = [d for d in new_dirs if "playwright_" in d or "pyright-" in d]
-                    if pw_dirs:
-                        self.user_data_dir = os.path.join(temp_dir, pw_dirs[0])
-                
-                # Phân tích nền tảng để tạo Client-Hints Header chuẩn xác
-                sec_ch_platform = "Windows" if "Win" in device_profile["platform"] else "macOS" if "Mac" in device_profile["platform"] else "Android" if "aarch" in device_profile["platform"] else "Linux"
-                if "iPhone" in device_profile["platform"]:
-                    sec_ch_platform = "iOS"
-
-                self.context = self.browser.new_context(
-                    viewport=device_profile["viewport"],
-                    user_agent=device_profile["user_agent"],
-                    is_mobile=device_profile.get("is_mobile", False),
-                    locale=device_profile["locale"],
-                    timezone_id=device_profile["timezone_id"],
-                    proxy=proxy_settings,
-                    color_scheme=random.choice(["light", "dark"]),
-                    extra_http_headers={
-                        "Accept-Language": f"{device_profile['locale']},en;q=0.9",
-                        "sec-ch-ua": f'"Chromium";v="{device_profile["chrome_major"]}", "Not A(Brand";v="99", "Google Chrome";v="{device_profile["chrome_major"]}"',
-                        "sec-ch-ua-mobile": "?1" if device_profile.get("is_mobile") else "?0",
-                        "sec-ch-ua-platform": f'"{sec_ch_platform}"'
-                    }
-                )
+                    print("[!] Không tìm thấy Google Chrome thật trên máy, chuyển sang lõi mặc định...")
+                    self.context = p.chromium.launch_persistent_context(
+                        user_data_dir=self.user_data_dir,
+                        headless=headless,
+                        ignore_default_args=["--enable-automation"],
+                        args=[
+                            "--disable-blink-features=AutomationControlled",
+                            "--disable-infobars",
+                            "--no-sandbox",
+                            f"--window-size={v_width},{v_height}"
+                        ],
+                        viewport=device_profile["viewport"],
+                        is_mobile=device_profile["is_mobile"],
+                        proxy=proxy_settings,
+                        color_scheme=random.choice(["light", "dark"])
+                    )
                 
                 if on_browser_created:
                     on_browser_created()
 
-                # --- TÍNH NĂNG GIÁM SÁT NETWORK & DỰ ĐOÁN LỖI 404 ---
-                self.total_requests = 0
-                self.error_404_count = 0
-                self.overload_count = 0
-                self.bot_detection_count = 0
-                self.current_overload_prob = 0.0
+                # --- TÍNH NĂNG GIÁM SÁT NETWORK ---
                 self.auto_action_count = 0
-                self.session_start_time = time.time()
+                self.req_stats = {'total': 0, 'finished': 0}
+                
+                self.context.on("request", lambda req: self.req_stats.update({'total': self.req_stats['total'] + 1}))
+                self.context.on("requestfinished", lambda req: self.req_stats.update({'finished': self.req_stats['finished'] + 1}))
+                self.context.on("requestfailed", lambda req: self.req_stats.update({'finished': self.req_stats['finished'] + 1}))
                 
                 def handle_network_response(response):
                     try:
-                        self.total_requests += 1
-                        if response.status == 404:
-                            self.error_404_count += 1
-                            
-                        # Bắt các mã lỗi liên quan đến máy chủ quá tải/sập (500, 502, 503, 504)
-                        elif response.status in [500, 502, 503, 504]:
-                            self.overload_count += 1
-                            if response.request.resource_type == "document":
-                                print(f"\n[!!!] PHÁT HIỆN MÁY CHỦ QUÁ TẢI (Mã lỗi {response.status}) TẠI LINK: {response.url}")
-
-                        # Bắt tín hiệu bị web nghi ngờ là Bot, Spam (403 Forbidden, 429 Too Many Requests) và tần suất check Captcha
-                        elif response.status in [403, 429]:
-                            self.bot_detection_count += 1
-                            if response.status == 429:
-                                print(f"\n[!!!] CẢNH BÁO: Bạn đang Spam quá nhanh (Mã 429 Rate Limit). Vui lòng làm chậm lại!")
-                        elif response.status == 200 and ("recaptcha/api2" in response.url or "challenges.cloudflare.com" in response.url):
-                            # Việc gọi Captcha/Tường lửa ngầm quá nhiều lần cũng làm tăng điểm khả nghi Bot
-                            self.bot_detection_count += 0.2
-
-                            # --- TỰ ĐỘNG BẮT LỖI TẠCH LINK /finish/ ---
-                            if response.request.resource_type == "document" and "finish" in response.url:
-                                print(f"\n[!!!] PHÁT HIỆN LỖI MÁY CHỦ (404) TẠI LINK: {response.url}")
-                                print("[!!!] Hệ thống web làm nhiệm vụ đang bị quá tải hoặc sập.")
-                                self._pending_action = "fix_404_error"
+                        # --- TỰ ĐỘNG BẮT LỖI TẠCH LINK /finish/ ---
+                        if response.request.resource_type == "document" and "finish" in response.url:
+                            self._pending_action = "fix_404_error"
                                 
-                        # Cập nhật log mỗi khi có 15 luồng dữ liệu mạng được xử lý (để tránh spam Console)
-                        if self.total_requests % 15 == 0:
-                            base_prob = (self.error_404_count / self.total_requests) * 100
-                            # Thuật toán dự đoán tỉ lệ đứt gãy mạng (kèm sai số ngẫu nhiên theo hành vi thực tế)
-                            predicted_prob = base_prob + random.uniform(0.1, 1.5) if base_prob > 0 else random.uniform(0.01, 0.2)
-                            
-                            # Thuật toán phân tích mức độ quá tải của Server web nhiệm vụ
-                            base_overload = (self.overload_count / self.total_requests) * 100
-                            predicted_overload = base_overload * 2 + random.uniform(1.0, 5.0) if base_overload > 0 else random.uniform(0.1, 2.5)
-                            self.current_overload_prob = predicted_overload
-                            
-                            # Thuật toán phân tích tỷ lệ bị Web nghi ngờ là Bot / Spam
-                            base_bot = (self.bot_detection_count / self.total_requests) * 100
-                            # Phân tích tốc độ ép lệnh của phần mềm (Nếu nhồi > 2 lệnh / giây liên tục thì sẽ bị lộ là Bot)
-                            action_rate = self.auto_action_count / max(1, time.time() - self.session_start_time)
-                            spam_penalty = (action_rate - 2) * 15 if action_rate > 2 else 0
-                            
-                            predicted_bot = base_bot * 1.5 + random.uniform(0.5, 2.0) + max(0, spam_penalty) if base_bot > 0 else random.uniform(0.0, 1.0) + max(0, spam_penalty)
-                            
-                            current_cookies = self.context.cookies()
-                            if self.network_callback:
-                                self.network_callback(len(current_cookies), predicted_prob, predicted_overload, predicted_bot, self.auto_action_count)
+                        current_cookies = self.context.cookies()
+                        if self.network_callback:
+                            self.network_callback(len(current_cookies), self.auto_action_count)
                     except Exception:
                         pass
 
                 self.context.on("response", handle_network_response)
                 # ---------------------------------------------------
 
-                # Ghi đè thông số navigator.platform và phần cứng bằng Javascript để giả mạo thiết bị sâu hơn
+                # Giấu các biến toàn cục do Playwright tạo ra
                 self.context.add_init_script(
-                    f"// --- CHỐNG NHẬN DIỆN BOT NÂNG CAO ---\n"
-                    f"// Dùng Proxy để bọc Getter, giấu mã nguồn giả mạo khỏi hàm .toString() của Anti-Bot\n"
-                    f"const overrideGetter = (obj, prop, value) => {{\n"
-                    f"    const desc = Object.getOwnPropertyDescriptor(obj, prop);\n"
-                    f"    if (desc && desc.get) {{\n"
-                    f"        Object.defineProperty(obj, prop, {{\n"
-                    f"            get: new Proxy(desc.get, {{ apply: () => value }}),\n"
-                    f"            enumerable: desc.enumerable,\n"
-                    f"            configurable: desc.configurable\n"
-                    f"        }});\n"
-                    f"    }}\n"
-                    f"}};\n"
-                    f"overrideGetter(Navigator.prototype, 'platform', '{device_profile['platform']}');\n"
-                    f"overrideGetter(Navigator.prototype, 'hardwareConcurrency', {device_profile['hardware_concurrency']});\n"
-                    f"overrideGetter(Navigator.prototype, 'deviceMemory', {device_profile['device_memory']});\n"
-                    f"overrideGetter(Navigator.prototype, 'languages', ['{device_profile['locale']}', 'en-US', 'en']);\n"
-                    f"if (Object.getOwnPropertyDescriptor(Navigator.prototype, 'webdriver')) overrideGetter(Navigator.prototype, 'webdriver', false);\n"
                     f"// Xóa các biến toàn cục do Playwright tạo ra\n"
                     f"delete window.__playwright;\n"
                     f"delete window.__pw_manual;\n"
                     f"delete window.__PW_outOfContext;\n"
-                    f"// Xóa dấu vết của ChromeDriver (Sát thủ của hệ thống Cloudflare)\n"
-                    f"Object.keys(window).forEach(key => {{ if (key.match(/^cdc_[a-zA-Z0-9]+_/)) {{ delete window[key]; }} }});\n"
-                    f"// --- Chống nhận diện: Đổi mã băm Canvas Fingerprint thành Độc Nhất ---\n"
-                    f"const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;\n"
-                    f"HTMLCanvasElement.prototype.toDataURL = new Proxy(originalToDataURL, {{\n"
-                    f"    apply: function(target, thisArg, args) {{\n"
-                    f"        try {{\n"
-                    f"            const ctx = thisArg.getContext('2d', {{willReadFrequently: true}});\n"
-                    f"            if (ctx) {{ ctx.fillStyle = 'rgba({device_profile['canvas_noise_r']}, {device_profile['canvas_noise_g']}, {device_profile['canvas_noise_b']}, 0.01)'; ctx.fillRect(0, 0, 1, 1); }}\n"
-                    f"        }} catch(e) {{}}\n"
-                    f"        return Reflect.apply(target, thisArg, args);\n"
-                    f"    }}\n"
-                    f"}});\n"
-                    f"// --- Chống nhận diện: Trộn thông số WebGL Fingerprint ---\n"
-                    f"const originalGetParameter = WebGLRenderingContext.prototype.getParameter;\n"
-                    f"WebGLRenderingContext.prototype.getParameter = new Proxy(originalGetParameter, {{\n"
-                    f"    apply: function(target, thisArg, args) {{\n"
-                    f"        if (args[0] === 37445) return '{device_profile['webgl_vendor']}';\n"
-                    f"        if (args[0] === 37446) return '{device_profile['webgl_renderer']}';\n"
-                    f"        return Reflect.apply(target, thisArg, args);\n"
-                    f"    }}\n"
-                    f"}});\n"
                 )
 
                 # --- ÉP MỞ LINK TRONG CÙNG TAB (ÁP DỤNG CHO MỌI TAB TRONG CONTEXT) ---
@@ -350,7 +225,53 @@ class BrowserEngine:
                     });
                 """)
 
-                page = self.context.new_page()
+                def check_server_load(url_str):
+                    import urllib.request
+                    from urllib.parse import urlparse
+                    try:
+                        domain = urlparse(url_str).netloc
+                        if "google.com/search" in url_str and "q=" in url_str:
+                            from urllib.parse import parse_qs
+                            query = parse_qs(urlparse(url_str).query)
+                            if 'q' in query:
+                                target = query['q'][0]
+                                domain = target.replace("https://", "").replace("http://", "").split("/")[0]
+
+                        if not domain: return "N/A"
+                        check_url = f"https://{domain}"
+                        start_time = time.time()
+                        req = urllib.request.Request(check_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+                        with urllib.request.urlopen(req, timeout=5) as response:
+                            response.read(1024)
+                        elapsed = time.time() - start_time
+                        if elapsed < 0.2: score = random.randint(1, 10)
+                        elif elapsed < 0.5: score = random.randint(11, 30)
+                        elif elapsed < 1.0: score = random.randint(31, 50)
+                        elif elapsed < 2.0: score = random.randint(51, 75)
+                        elif elapsed < 4.0: score = random.randint(76, 90)
+                        else: score = random.randint(91, 99)
+                        return f"{score}/100"
+                    except Exception:
+                        return "Sập/Lỗi"
+
+                def on_page_load(p):
+                    try:
+                        url_str = p.url
+                        if url_str and not url_str.startswith("about:") and not url_str.startswith("chrome-error:"):
+                            def check_and_log():
+                                score = check_server_load(url_str)
+                                total = self.req_stats['total']
+                                finished = self.req_stats['finished']
+                                percent = int((finished / total) * 100) if total > 0 else 100
+                                print(f"\n[*] Đang mở trang: {url_str}\n    -> Tải gói: {percent}% ({finished}/{total}) | Phản hồi Server: {score}")
+                            threading.Thread(target=check_and_log, daemon=True).start()
+                    except Exception:
+                        pass
+
+                self.context.on("page", lambda p: p.on("domcontentloaded", on_page_load))
+
+                page = self.context.pages[0] if self.context.pages else self.context.new_page()
+                page.on("domcontentloaded", on_page_load)
                 
                 # --- TĂNG SỨC CHỊU ĐỰNG MẠNG (NETWORK RESILIENCE) ---
                 # Giúp trình duyệt kiên nhẫn chờ đợi khi mạng lag hoặc rớt tạm thời mà không đánh hỏng nhiệm vụ
@@ -411,12 +332,12 @@ class BrowserEngine:
                         # --- BỔ SUNG: XỬ LÝ GOOGLE RECAPTCHA (NẾU CÓ) ---
                         try:
                             # Chờ xem iframe checkbox của reCAPTCHA có xuất hiện trong vòng 4 giây không
-                            page.wait_for_selector("iframe[src*='recaptcha/api2/anchor']", timeout=4000)
-                            print("[!] Phát hiện Google reCAPTCHA chặn. Đang thử click tự động...")
+                            page.wait_for_selector("iframe[src*='recaptcha/api2/anchor'], iframe[src*='recaptcha/enterprise']", timeout=4000)
+                            print("[!] Phát hiện xác thực Captcha. Đang tự động xử lý...")
                             page.wait_for_timeout(random.randint(650, 1650))
                             
                             # Sử dụng frame_locator để chọn đúng iframe chứa ô Checkbox
-                            recaptcha_frame = page.frame_locator("iframe[src*='recaptcha/api2/anchor']")
+                            recaptcha_frame = page.frame_locator("iframe[src*='recaptcha/api2/anchor'], iframe[src*='recaptcha/enterprise']").first
                             checkbox = recaptcha_frame.locator(".recaptcha-checkbox-border")
                             
                             if checkbox.count() > 0:
@@ -425,16 +346,10 @@ class BrowserEngine:
                                 page.wait_for_timeout(random.randint(400, 900))
                                 checkbox.click(delay=random.randint(80, 200))
                                 self.auto_action_count += 2
-                                print("[*] Đã tự động click vào ô 'Tôi không phải là người máy' (như người thật).")
+                                print("[*] Đã tự động click xác thực.")
                                 page.wait_for_timeout(random.randint(2000, 3300))
-                                
-                                # Kiểm tra xem bảng chọn hình ảnh (bframe) có hiển thị không
-                                challenge_iframe = page.locator("iframe[src*='recaptcha/api2/bframe']")
-                                if challenge_iframe.count() > 0 and challenge_iframe.is_visible():
-                                    print("[!!!] CẢNH BÁO: Google yêu cầu giải CAPTCHA hình ảnh.")
-                                    print("[!!!] Bạn vui lòng chọn hình thủ công (việc tự động giải hình ảnh cần tích hợp API như 2Captcha/Anti-captcha).")
                         except Exception:
-                            print("[*] Trạng thái: An toàn (Không bị Google hỏi reCAPTCHA).")
+                            pass
                     except Exception as ex:
                         print(f"[!] Lỗi trong quá trình tự động hóa tác vụ: {ex}")
                         
@@ -462,14 +377,50 @@ class BrowserEngine:
                             # --- TỰ ĐỘNG DIỆT CLOUDFLARE TURNSTILE TRONG LÚC RẢNH RỖI ---
                             try:
                                 active_p = self.context.pages[-1]
-                                cf_frame = active_p.frame_locator("iframe[src*='challenges.cloudflare.com']")
-                                cf_checkbox = cf_frame.locator("label.ctp-checkbox-label").first
+                                
+                                # 1. Dạng Checkbox Cloudflare Turnstile nằm trong iframe
+                                cf_frame = active_p.frame_locator("iframe[src*='challenges.cloudflare.com'], iframe[src*='turnstile']").first
+                                cf_checkbox = cf_frame.locator("label.ctp-checkbox-label, input[type='checkbox'], .mark, #challenge-stage").first
+                                
+                                # 2. Dạng nút bấm thông thường bên ngoài
+                                verify_btn = active_p.locator("text=Verify you are human, text=Xác minh bạn là con người, text=Vui lòng xác minh bạn là con người").first
+                                
                                 if cf_checkbox.count() > 0 and cf_checkbox.is_visible(timeout=100):
-                                    print("\n[*] [Auto-Bypass] Phát hiện Tường lửa Cloudflare. Đang tự động giải quyết...")
-                                    cf_checkbox.hover()
-                                    active_p.wait_for_timeout(random.randint(500, 1000))
-                                    cf_checkbox.click(delay=random.randint(80, 200))
+                                    print("\n[*] [Auto-Bypass] Phát hiện Tường lửa Cloudflare. Đang tự động xác minh...")
+                                    try:
+                                        box = cf_checkbox.bounding_box()
+                                        if box:
+                                            # Click lệch tâm ngẫu nhiên (như người thật) thay vì click chính giữa trung tâm
+                                            target_x = box["x"] + random.uniform(box["width"] * 0.2, box["width"] * 0.8)
+                                            target_y = box["y"] + random.uniform(box["height"] * 0.2, box["height"] * 0.8)
+                                            active_p.mouse.move(target_x, target_y, steps=random.randint(3, 7))
+                                            active_p.wait_for_timeout(random.randint(200, 500))
+                                            active_p.mouse.down()
+                                            active_p.wait_for_timeout(random.randint(80, 200))
+                                            active_p.mouse.up()
+                                        else:
+                                            cf_checkbox.click(delay=random.randint(80, 200))
+                                    except Exception:
+                                        cf_checkbox.click(delay=random.randint(80, 200))
                                     self.auto_action_count += 2
+                                    active_p.wait_for_timeout(4000)
+                                elif verify_btn.count() > 0 and verify_btn.is_visible(timeout=100):
+                                    print("\n[*] [Auto-Bypass] Phát hiện nút Xác minh con người. Đang tự động click...")
+                                    try:
+                                        box = verify_btn.bounding_box()
+                                        if box:
+                                            target_x = box["x"] + random.uniform(box["width"] * 0.2, box["width"] * 0.8)
+                                            target_y = box["y"] + random.uniform(box["height"] * 0.2, box["height"] * 0.8)
+                                            active_p.mouse.move(target_x, target_y, steps=random.randint(3, 7))
+                                            active_p.wait_for_timeout(random.randint(200, 500))
+                                            active_p.mouse.down()
+                                            active_p.wait_for_timeout(random.randint(80, 200))
+                                            active_p.mouse.up()
+                                        else:
+                                            verify_btn.click(delay=random.randint(80, 200))
+                                    except Exception:
+                                        verify_btn.click(delay=random.randint(80, 200))
+                                    self.auto_action_count += 1
                                     active_p.wait_for_timeout(4000)
                             except Exception: pass
                             # -----------------------------------------------------------
@@ -597,11 +548,6 @@ class BrowserEngine:
                                                             step_loc.nth(i).scroll_into_view_if_needed()
                                                             active_page.wait_for_timeout(1000)
                                                             
-                                                            if self.current_overload_prob > 20.0:
-                                                                delay = random.randint(3000, 5000)
-                                                                print(f"[!] Server đang quá tải ({self.current_overload_prob:.1f}%). Tự động chờ thêm {delay/1000:.1f}s trước khi click để tránh lỗi...")
-                                                                active_page.wait_for_timeout(delay)
-                                                                
                                                             step_loc.nth(i).click(timeout=3000)
                                                             self.auto_action_count += 1
                                                             button_found = True
@@ -624,11 +570,6 @@ class BrowserEngine:
                                                         finish_loc.nth(i).scroll_into_view_if_needed()
                                                         active_page.wait_for_timeout(500)
                                                         
-                                                        if self.current_overload_prob > 20.0:
-                                                            delay = random.randint(3000, 5000)
-                                                            print(f"[!] Server đang quá tải. Chờ chậm lại {delay/1000:.1f}s trước khi hoàn thành...")
-                                                            active_page.wait_for_timeout(delay)
-                                                            
                                                         finish_loc.nth(i).click(timeout=3000)
                                                         self.auto_action_count += 1
                                                         is_finished = True
@@ -750,11 +691,6 @@ class BrowserEngine:
                                                 lay_ma_loc.nth(i).scroll_into_view_if_needed()
                                                 active_page.wait_for_timeout(1000)
                                                 
-                                                if self.current_overload_prob > 20.0:
-                                                    delay = random.randint(3000, 5000)
-                                                    print(f"[!] Server đang quá tải ({self.current_overload_prob:.1f}%). Tự động chờ thêm {delay/1000:.1f}s trước khi click để tránh lỗi...")
-                                                    active_page.wait_for_timeout(delay)
-                                                    
                                                 lay_ma_loc.nth(i).click(timeout=3000)
                                                 self.auto_action_count += 1
                                                 button_found = True
@@ -774,11 +710,6 @@ class BrowserEngine:
                                                 touch_loc.nth(0).scroll_into_view_if_needed()
                                                 active_page.wait_for_timeout(500)
                                                 
-                                                if self.current_overload_prob > 20.0:
-                                                    delay = random.randint(3000, 5000)
-                                                    print(f"[!] Server đang quá tải. Chờ chậm lại {delay/1000:.1f}s...")
-                                                    active_page.wait_for_timeout(delay)
-                                                    
                                                 touch_loc.nth(0).click(timeout=3000)
                                                 self.auto_action_count += 1
                                                 print("[*] Đã chạm vào màn hình. Đang kiểm tra yêu cầu cuộn trang...")
@@ -837,10 +768,10 @@ class BrowserEngine:
                 except Exception:
                     pass
                     
-                if self._should_close and self.browser and self.browser.is_connected():
+                if self._should_close and self.context:
                     print("[*] Đang thực hiện đóng trình duyệt từ luồng chạy nền...")
                     try:
-                        self.browser.close()
+                        self.context.close()
                     except Exception:
                         pass
                     
@@ -853,7 +784,6 @@ class BrowserEngine:
         finally:
             # Khối này đảm bảo trạng thái được reset ngay cả khi có lỗi
             self.context = None
-            self.browser = None
             self.playwright = None
             self.user_data_dir = ""
             print("[*] Session đã được dọn dẹp hoàn toàn.")
