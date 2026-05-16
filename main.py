@@ -171,17 +171,21 @@ class AntiDetectGUI:
         # --- Container cho 2 khung (Thiết bị và Log) ---
         bottom_container = tk.Frame(root, bg="#121212")
         bottom_container.pack(pady=(8, 0), fill=tk.BOTH, expand=True, padx=15)
+        
+        bottom_container.columnconfigure(0, weight=1, uniform="group1")
+        bottom_container.columnconfigure(1, weight=1, uniform="group1")
+        bottom_container.rowconfigure(0, weight=1)
 
         # Cột 1: Hiển thị thông số cấu hình giả lập
         self.device_info_frame = tk.LabelFrame(bottom_container, text="Chi tiết trình duyệt ẩn danh vừa tạo:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
-        self.device_info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        self.device_info_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
         
         self.device_info_text = tk.Text(self.device_info_frame, height=6, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
         self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
         # Cột 2: Terminal Log
         self.log_frame = tk.LabelFrame(bottom_container, text="Log:", font=("Arial", 7, "bold"), bg="#121212", fg="#00e676")
-        self.log_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+        self.log_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
 
         self.log_text = tk.Text(self.log_frame, height=6, font=("Courier", 7), bg="#1e1e1e", fg="#00e676", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
         self.log_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
