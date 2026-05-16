@@ -30,6 +30,21 @@ class AntiDetectGUI:
         self.root.aspect(40, 27, 40, 27) # Khóa tỷ lệ khung hình cố định, chỉ cho kéo đường chéo
         self.root.configure(bg="#121212")
         
+        # --- Cấu hình Style cho các ô chọn (Combobox/Filter) ---
+        style = ttk.Style(root)
+        style.theme_use('clam') # Đổi engine giao diện sang clam để cho phép đổi màu
+        
+        # Đổi màu nền, chữ và mũi tên của ô Filter
+        style.configure("TCombobox", fieldbackground="#f5f5f5", background="#cccccc", foreground="black", arrowcolor="black", bordercolor="#121212")
+        # Đổi màu danh sách xổ xuống (Listbox) của Filter
+        root.option_add('*TCombobox*Listbox.background', '#f5f5f5')
+        root.option_add('*TCombobox*Listbox.foreground', 'black')
+        root.option_add('*TCombobox*Listbox.selectBackground', '#333333')
+        root.option_add('*TCombobox*Listbox.selectForeground', '#00e676')
+        # Đồng bộ màu xanh cho các thanh tiến trình (Progressbar)
+        style.configure("Horizontal.TProgressbar", troughcolor="#1e1e1e", background="#00bcd4", bordercolor="#121212", lightcolor="#00bcd4", darkcolor="#00bcd4")
+        # -------------------------------------------------------
+
         self.engine = BrowserEngine()
         self.engine.set_network_callback(self.update_network_analysis)
         
