@@ -16,7 +16,24 @@ from core.browser_engine import BrowserEngine
 class AntiDetectGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("ChangeIMEI Anti-Detect Browser")
+
+        self.window_index = 0
+        self.is_hidden = False
+
+        self.auto_launch_hidden = False
+        for arg in sys.argv:
+            if arg.startswith("--window-index="):
+                try: self.window_index = int(arg.split("=")[1])
+                except: pass
+            elif arg == "--hidden":
+                self.is_hidden = True
+            elif arg == "--auto-launch-hidden":
+                self.auto_launch_hidden = True
+
+        if self.window_index > 0:
+            self.root.title(f"ChangeIMEI Anti-Detect Browser - Cửa sổ {self.window_index}")
+        else:
+            self.root.title("ChangeIMEI Anti-Detect Browser")
         
         self.current_scale = 0.8
         # Căn giữa cửa sổ phần mềm chính trên màn hình lúc mới bật
@@ -24,10 +41,20 @@ class AntiDetectGUI:
         window_h = int(540 * self.current_scale)
         screen_w = root.winfo_screenwidth()
         screen_h = root.winfo_screenheight()
-        pos_x = (screen_w // 2) - (window_w // 2)
-        pos_y = (screen_h // 2) - (window_h // 2)
+
+        # Tự động ném các cửa sổ mới vào 4 góc màn hình để không bị rối
+        if self.window_index == 1: pos_x, pos_y = 10, 10
+        elif self.window_index == 2: pos_x, pos_y = screen_w - window_w - 10, 10
+        elif self.window_index == 3: pos_x, pos_y = 10, screen_h - window_h - 50
+        elif self.window_index == 4: pos_x, pos_y = screen_w - window_w - 10, screen_h - window_h - 50
+        else:
+            pos_x = (screen_w // 2) - (window_w // 2)
+            pos_y = (screen_h // 2) - (window_h // 2)
         self.root.geometry(f"{window_w}x{window_h}+{pos_x}+{pos_y}")
         
+        if self.is_hidden:
+            self.root.withdraw() # Ẩn cửa sổ khởi chạy ngầm, không hiện ra Desktop và Taskbar
+
         self.root.aspect(40, 27, 40, 27) # Khóa tỷ lệ khung hình cố định, chỉ cho kéo đường chéo
         self.root.configure(bg="#121212")
         
@@ -61,6 +88,12 @@ class AntiDetectGUI:
         self.is_dark_mode = True
         self.btn_theme = tk.Button(root, text="🌙 Dark", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_theme, activebackground="#333333", activeforeground="#00ffff")
         self.btn_theme.place(relx=1.0, x=-200, y=15, width=75)
+
+        self.btn_new_window = tk.Button(root, text="🪟 Mở Tool Mới", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.open_new_instance, activebackground="#333333", activeforeground="#b388ff")
+        self.btn_new_window.place(relx=1.0, x=-300, y=15, width=90)
+
+        self.btn_manage = tk.Button(root, text="🗂️ Quản lý", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.open_manager, activebackground="#333333", activeforeground="#ffb74d")
+        self.btn_manage.place(relx=1.0, x=-400, y=15, width=90)
 
         self.clock_label = tk.Label(root, font=("Courier", 8, "bold"), bg="#1e1e1e", fg="#00e676", relief=tk.FLAT)
         self.clock_label.place(x=15, y=15, width=160, height=22)
@@ -159,6 +192,12 @@ class AntiDetectGUI:
         self.tz_cb = ttk.Combobox(filter_frame, textvariable=self.tz_var, values=list(self.tz_map.keys()), state="readonly", font=("Arial", 8), width=12)
         self.tz_cb.pack(side=tk.LEFT, padx=(0, 5))
         
+        tk.Label(filter_frame, text="Thiết bị:", font=("Arial", 8, "bold"), fg="#e0e0e0", bg="#121212").pack(side=tk.LEFT, padx=2)
+        self.platform_var = tk.StringVar(value="Điện thoại")
+        self.platform_cb = ttk.Combobox(filter_frame, textvariable=self.platform_var, values=["Điện thoại", "Máy tính", "Ngẫu nhiên"], state="readonly", font=("Arial", 8), width=10)
+        self.platform_cb.pack(side=tk.LEFT, padx=(0, 5))
+        self.platform_cb.bind("<<ComboboxSelected>>", lambda e: self.regenerate_profiles())
+        
         self.btn_regen = tk.Button(filter_frame, text="🔄 Tổ hợp mới", command=self.regenerate_profiles, bg="#333333", fg="#00e676", font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#555555", activeforeground="#00e676")
         self.btn_regen.pack(side=tk.LEFT, padx=(0, 10))
 
@@ -250,6 +289,9 @@ class AntiDetectGUI:
         # Cập nhật cỡ chữ và giao diện theo scale hiện tại ngay khi phần mềm khởi động xong
         self.root.after(50, self.apply_scale)
 
+        # Luồng kiểm tra lệnh từ Manager (giúp các Tool có thể nhận lệnh chạy chéo nhau)
+        self.root.after(1000, self.check_commands)
+
     def update_network_analysis(self, cookie_count, prob_404, prob_overload=0.0, prob_bot=0.0, auto_cmds=0):
         def _update():
             # Tự động đổi màu cảnh báo nếu bất kỳ thông số rủi ro nào vượt ngưỡng
@@ -262,6 +304,26 @@ class AntiDetectGUI:
         current_time = time.strftime("%H:%M:%S | %d/%m/%Y")
         self.clock_label.config(text=current_time)
         self.root.after(1000, self.update_clock)
+
+    def check_commands(self):
+        """Kiểm tra lệnh điều khiển từ các cửa sổ khác (Ví dụ: Lệnh gửi từ bảng Manager)"""
+        cmd_file = os.path.join(tempfile.gettempdir(), f"changeimei_cmd_{self.window_index}.txt")
+        if os.path.exists(cmd_file):
+            try:
+                with open(cmd_file, "r") as f:
+                    cmd = f.read().strip()
+                os.remove(cmd_file)
+                
+                if cmd == "launch_hidden":
+                    # Chỉ khởi chạy nếu nút mở trình duyệt đang sẵn sàng
+                    if self.btn_ip_that['state'] == tk.NORMAL:
+                        self.launch_ip_that(headless=True)
+                elif cmd == "launch_shown":
+                    if self.btn_ip_that['state'] == tk.NORMAL:
+                        self.launch_ip_that(headless=False)
+            except Exception: pass
+            
+        self.root.after(1000, self.check_commands)
 
     def apply_scale(self, event=None):
         """Áp dụng bộ lọc tỷ lệ phóng to giao diện"""
@@ -279,6 +341,8 @@ class AntiDetectGUI:
         # Tính toán lại tọa độ cho các thành phần neo cố định (Ghim, Theme, Đồng hồ)
         self.btn_pin.place(relx=1.0, x=int(-120 * self.current_scale), y=int(15 * self.current_scale), width=int(100 * self.current_scale))
         self.btn_theme.place(relx=1.0, x=int(-200 * self.current_scale), y=int(15 * self.current_scale), width=int(75 * self.current_scale))
+        self.btn_new_window.place(relx=1.0, x=int(-300 * self.current_scale), y=int(15 * self.current_scale), width=int(90 * self.current_scale))
+        self.btn_manage.place(relx=1.0, x=int(-400 * self.current_scale), y=int(15 * self.current_scale), width=int(90 * self.current_scale))
         self.clock_label.place(x=int(15 * self.current_scale), y=int(15 * self.current_scale), width=int(160 * self.current_scale), height=int(22 * self.current_scale))
 
         self._scale_widget_tree(self.root, self.current_scale)
@@ -558,6 +622,125 @@ class AntiDetectGUI:
             self.btn_pin.config(text="📍 Đã Ghim", fg=self.get_color("#00e676"))
         else:
             self.btn_pin.config(text="📌 Ghim", fg=self.get_color("#a0a0a0"))
+            
+    def open_new_instance(self):
+        """Khởi chạy thêm cửa sổ mới, tự động cấp ID và sắp xếp vào 4 góc màn hình"""
+        import subprocess
+        import sys
+        
+        counter_file = os.path.join(tempfile.gettempdir(), "changeimei_window_count.txt")
+        next_id = 1
+        try:
+            if os.path.exists(counter_file):
+                if time.time() - os.path.getmtime(counter_file) > 43200: # Sau 12 tiếng tự reset
+                    next_id = 1
+                else:
+                    with open(counter_file, "r") as f:
+                        next_id = int(f.read().strip()) + 1
+            if next_id > 4: next_id = 1
+            with open(counter_file, "w") as f:
+                f.write(str(next_id))
+        except Exception:
+            next_id = random.randint(1, 4)
+            
+        args = [sys.executable, os.path.abspath(sys.argv[0]), f"--window-index={next_id}", "--hidden"]
+        if self.window_index == 0:
+            args.append("--auto-launch-hidden")
+            
+        subprocess.Popen(args)
+
+    def open_manager(self):
+        """Mở bảng quản lý các cửa sổ Tool đang chạy"""
+        if hasattr(self, 'manager_dialog') and self.manager_dialog.winfo_exists():
+            self.manager_dialog.lift()
+            return
+
+        import sys
+        if sys.platform != "win32":
+            messagebox.showinfo("Thông báo", "Tính năng này hiện chỉ hỗ trợ trên hệ điều hành Windows.", parent=self.root)
+            return
+
+        import ctypes
+        user32 = ctypes.windll.user32
+        
+        # Quét kiểm tra tới 10 cửa sổ Tool
+        titles_to_check = ["ChangeIMEI Anti-Detect Browser"] + [f"ChangeIMEI Anti-Detect Browser - Cửa sổ {i}" for i in range(1, 11)]
+        found_windows = []
+        for title in titles_to_check:
+            hwnd = user32.FindWindowW(None, title)
+            if hwnd:
+                found_windows.append((title, hwnd))
+                
+        self.manager_dialog = tk.Toplevel(self.root)
+        self.manager_dialog.withdraw()
+        self.manager_dialog.title("Quản lý cửa sổ")
+        
+        # Tự động tính toán chiều cao cửa sổ dựa trên số lượng nút bấm (3 cột)
+        rows = (len(found_windows) - 1) // 3 + 1
+        dialog_w = int(450 * self.current_scale)
+        dialog_h = int((100 + rows * 60) * self.current_scale)
+        self.root.update_idletasks()
+        
+        main_x = self.root.winfo_rootx()
+        main_y = self.root.winfo_rooty()
+        main_w = self.root.winfo_width()
+        main_h = self.root.winfo_height()
+        pos_x = main_x + (main_w // 2) - (dialog_w // 2)
+        pos_y = main_y + (main_h // 2) - (dialog_h // 2)
+        
+        self.manager_dialog.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
+        self.manager_dialog.configure(bg="#121212")
+        self.manager_dialog.transient(self.root)
+        self.manager_dialog.grab_set()
+        
+        tk.Label(self.manager_dialog, text="Danh sách các Tool đang hoạt động", font=("Arial", 10, "bold"), fg="#00e676", bg="#121212").pack(pady=(15, 5))
+        
+        grid_frame = tk.Frame(self.manager_dialog, bg="#121212")
+        grid_frame.pack(padx=15, pady=10)
+        
+        def bring_to_front(hwnd):
+            user32.ShowWindow(hwnd, 9) # 9 = Khôi phục nếu bị thu nhỏ
+            user32.SetForegroundWindow(hwnd) # Đưa lên trên cùng
+            self.manager_dialog.destroy()
+            
+        def send_command(w_index, cmd):
+            cmd_file = os.path.join(tempfile.gettempdir(), f"changeimei_cmd_{w_index}.txt")
+            try:
+                with open(cmd_file, "w") as f:
+                    f.write(cmd)
+                messagebox.showinfo("Thành công", f"Đã gửi tín hiệu khởi chạy tới Cửa sổ {w_index}!", parent=self.manager_dialog)
+            except Exception: pass
+
+        def show_context_menu(event, w_index):
+            menu = tk.Menu(self.manager_dialog, tearoff=0, bg="#1e1e1e", fg="#00ffff", activebackground="#333333", activeforeground="#b388ff")
+            menu.add_command(label="🌐 Khởi chạy trình duyệt (Ẩn)", command=lambda: send_command(w_index, "launch_hidden"))
+            menu.add_command(label="🪟 Khởi chạy trình duyệt (Hiện)", command=lambda: send_command(w_index, "launch_shown"))
+            menu.tk_popup(event.x_root, event.y_root)
+            
+        row, col = 0, 0
+        for title, hwnd in found_windows:
+            display_name = title.split(" - ")[-1] if " - " in title else "Cửa sổ Gốc"
+            w_index = int(title.split(" - Cửa sổ ")[-1]) if " - Cửa sổ " in title else 0
+            
+            # Đổi màu cam nổi bật cho nút bấm của cửa sổ hiện tại đang thao tác
+            is_current = (title == self.root.title())
+            bg_color = "#333333" if is_current else "#1e1e1e"
+            fg_color = "#ffb74d" if is_current else "#00ffff"
+            
+            btn = tk.Button(grid_frame, text=f"🪟 {display_name}", font=("Arial", 8, "bold"), bg=bg_color, fg=fg_color, relief=tk.FLAT, command=lambda h=hwnd: bring_to_front(h), activebackground="#555555", activeforeground="#b388ff", width=14, height=2)
+            btn.grid(row=row, column=col, padx=8, pady=8)
+            
+            # Gắn sự kiện Click chuột phải để mở Menu Option
+            btn.bind("<Button-3>", lambda e, idx=w_index: show_context_menu(e, idx))
+            
+            col += 1
+            if col > 2:
+                col = 0
+                row += 1
+                
+        self._scale_widget_tree(self.manager_dialog, self.current_scale)
+        self.apply_current_theme(self.manager_dialog)
+        self.manager_dialog.deiconify()
 
     def regenerate_profiles(self):
         if self.engine.playwright is not None or (hasattr(self, '_is_wiping') and self._is_wiping):
@@ -628,7 +811,10 @@ class AntiDetectGUI:
         
         self._scale_widget_tree(prog_win, self.current_scale)
         self.apply_current_theme(prog_win)
-        prog_win.deiconify()
+        
+        # Chỉ hiển thị bảng thông báo khởi tạo nếu cửa sổ phần mềm chính đang không bị ẩn
+        if self.root.state() != 'withdrawn':
+            prog_win.deiconify()
         
         steps = [
             "Đang sinh dữ liệu thiết bị 1/5...",
@@ -650,7 +836,13 @@ class AntiDetectGUI:
                 if hasattr(self, 'tz_map') and hasattr(self, 'tz_var'):
                     preferred_tz = self.tz_map.get(self.tz_var.get(), "Auto")
                     
-                self.profiles_queue = [self.engine.device_faker.generate_new_device(preferred_timezone=preferred_tz) for _ in range(5)]
+                preferred_platform = "Mobile"
+                if hasattr(self, 'platform_var'):
+                    p_val = self.platform_var.get()
+                    if p_val == "Máy tính": preferred_platform = "Desktop"
+                    elif p_val == "Ngẫu nhiên": preferred_platform = "Random"
+                    
+                self.profiles_queue = [self.engine.device_faker.generate_new_device(preferred_timezone=preferred_tz, platform_type=preferred_platform) for _ in range(5)]
                 self.profiles_used = 0
                 self.root.after(400, prog_win.destroy)
                 self.load_next_profile()
@@ -673,6 +865,10 @@ class AntiDetectGUI:
             self.btn_auto_task.config(state=tk.DISABLED)
             self.btn_auto_task_step.config(state=tk.DISABLED)
             self.status_label.config(text=f"Trạng thái: Sẵn sàng (Thiết bị {self.profiles_used}/5)", fg=self.get_color("#00e676"))
+            
+            if getattr(self, 'auto_launch_hidden', False):
+                self.auto_launch_hidden = False # Chỉ chạy tự động ở lần nạp cấu hình đầu tiên
+                self.root.after(500, lambda: self.launch_ip_that(headless=True))
         else:
             self.current_profile = None
             self.device_info_frame.config(text="Chi tiết trình duyệt (Hết lượt):")
@@ -750,12 +946,11 @@ class AntiDetectGUI:
                     return
                 
                 try:
-                    # Chỉ xóa dữ liệu rác/cookie tạm thời của Playwright, giữ lại lõi trình duyệt
-                    temp_dir = tempfile.gettempdir()
-                    for item in os.listdir(temp_dir):
-                        if item.startswith("playwright_") or item.startswith("pyright-"):
-                            shutil.rmtree(os.path.join(temp_dir, item), ignore_errors=True)
-                except: pass
+                    # Chỉ xóa thư mục tạm của đúng trình duyệt ở cửa sổ này dựa vào đường dẫn data
+                    current_path = self.path_entry.get()
+                    if current_path and os.path.exists(current_path) and ("playwright_" in current_path or "pyright-" in current_path):
+                        shutil.rmtree(current_path, ignore_errors=True)
+                except Exception: pass
                 
                 self.root.destroy()
             final_wipe_and_exit()
@@ -790,12 +985,8 @@ class AntiDetectGUI:
         try:
             if not is_running:
                 return "Đang chờ khởi chạy..."
-            temp_dir = tempfile.gettempdir()
-            # Quét tìm thư mục Playwright mới nhất vừa được tạo
-            playwright_dirs = [os.path.join(temp_dir, d) for d in os.listdir(temp_dir) if d.startswith("playwright_")]
-            if playwright_dirs:
-                latest_dir = max(playwright_dirs, key=os.path.getmtime) # Lấy thư mục mới sinh ra nhất
-                return latest_dir
+            if hasattr(self.engine, 'user_data_dir') and self.engine.user_data_dir:
+                return self.engine.user_data_dir
             return "Không tìm thấy thư mục tạm thời."
         except Exception as e:
             print(f"Lỗi khi lấy đường dẫn: {e}")
@@ -846,7 +1037,7 @@ class AntiDetectGUI:
             self.status_label.config(text="Trạng thái: Đang chạy tiến trình lấy mã upto step...", fg=self.get_color("#b388ff"))
             self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Đang theo dõi tiến trình lấy mã...", fg=self.get_color("#b388ff")))
 
-    def run_browser_thread(self, target_url, use_proxy):
+    def run_browser_thread(self, target_url, use_proxy, headless=False):
         """Chạy việc mở trình duyệt trong một thread riêng để không làm treo giao diện."""
         # Cập nhật giao diện ngay lập tức
         self.set_ui_for_browser_state(is_running=True)
@@ -879,7 +1070,8 @@ class AntiDetectGUI:
                 use_proxy=use_proxy,
                 on_launch_callback=on_launch_success,
                 device_profile=self.current_profile,
-                on_browser_created=on_browser_created
+                on_browser_created=on_browser_created,
+                headless=headless
             )
         except Exception as e:
             print(f"Lỗi: {e}")
@@ -895,13 +1087,13 @@ class AntiDetectGUI:
                     self.status_label.config(text="Trạng thái: Trình duyệt đã đóng. Vui lòng bấm 'Delete' để dọn dẹp.", fg=self.get_color("#ff5252"))
             self.root.after(0, on_browser_thread_exit)
 
-    def launch_ip_that(self):
+    def launch_ip_that(self, headless=False):
         url = self.url_entry.get().strip()
-        threading.Thread(target=self.run_browser_thread, args=(url, False), daemon=True).start()
+        threading.Thread(target=self.run_browser_thread, args=(url, False, headless), daemon=True).start()
 
-    def launch_proxy(self):
+    def launch_proxy(self, headless=False):
         url = self.url_entry.get().strip()
-        threading.Thread(target=self.run_browser_thread, args=(url, True), daemon=True).start()
+        threading.Thread(target=self.run_browser_thread, args=(url, True, headless), daemon=True).start()
 
     def delete_session(self):
         """Thực hiện dọn dẹp session với thanh tiến trình trực quan."""
@@ -973,10 +1165,10 @@ class AntiDetectGUI:
                     file_label.config(text="Đang dọn sạch các file rác trong thư mục Temp...")
                     
                     try:
-                        temp_dir = tempfile.gettempdir()
-                        for item in os.listdir(temp_dir):
-                            if item.startswith("playwright_") or item.startswith("pyright-"):
-                                shutil.rmtree(os.path.join(temp_dir, item), ignore_errors=True)
+                        # Chỉ xóa thư mục tạm của đúng trình duyệt ở cửa sổ này dựa vào đường dẫn data
+                        current_path = self.path_entry.get()
+                        if current_path and os.path.exists(current_path) and ("playwright_" in current_path or "pyright-" in current_path):
+                            shutil.rmtree(current_path, ignore_errors=True)
                     except Exception: pass
                     
                     def finish_wipe():

@@ -222,7 +222,7 @@ class DeviceFaker:
             ("Apple Inc.", "Apple A15 GPU"), ("Apple Inc.", "Apple A16 GPU")
         ]
 
-    def generate_new_device(self, preferred_timezone="Auto"):
+    def generate_new_device(self, preferred_timezone="Auto", platform_type="Mobile"):
         """Sinh trực tiếp (On-the-fly) một cấu hình thiết bị hoàn toàn mới mỗi lần gọi"""
         
         # 1. Sinh ngẫu nhiên dải rộng phiên bản trình duyệt Chrome (VD: Từ 100 đến 126)
@@ -252,8 +252,8 @@ class DeviceFaker:
         ios_major_version = random.randint(14, 17)
 
         # 2. Sinh ngẫu nhiên Hệ điều hành (OS) và thông số màn hình phù hợp
-        os_choices = [
-            # --- Mobile OS (Theo yêu cầu, chỉ giả lập điện thoại) ---
+        mobile_os_choices = [
+            # --- Mobile OS ---
             {
                 "os_str": f"Linux; Android {random.randint(10, 14)}; {random.choice(android_models)}",
                 "platform": "Linux aarch64",
@@ -269,8 +269,32 @@ class DeviceFaker:
                              "height": random.choice([667, 812, 844, 852, 896, 926, 932])}
             }
         ]
-        # Ghi chú: Các cấu hình máy tính/desktop đã được loại bỏ để chỉ tập trung vào điện thoại.
+        
+        desktop_os_choices = [
+            # --- Desktop OS ---
+            {
+                "os_str": "Windows NT 10.0; Win64; x64",
+                "platform": "Win32",
+                "is_mobile": False,
+                "viewport": {"width": random.choice([1366, 1440, 1536, 1920]), 
+                             "height": random.choice([720, 768, 800, 864])}
+            },
+            {
+                "os_str": "Macintosh; Intel Mac OS X 10_15_7",
+                "platform": "MacIntel",
+                "is_mobile": False,
+                "viewport": {"width": random.choice([1280, 1440, 1680, 1920]), 
+                             "height": random.choice([720, 768, 800, 864])}
+            }
+        ]
 
+        if platform_type == "Desktop":
+            os_choices = desktop_os_choices
+        elif platform_type == "Mobile":
+            os_choices = mobile_os_choices
+        else:
+            os_choices = mobile_os_choices + desktop_os_choices
+            
         selected_os = random.choice(os_choices)
 
         # 3. Lắp ráp User-Agent dựa trên OS và Phiên bản vừa sinh

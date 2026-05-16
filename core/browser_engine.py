@@ -3,6 +3,8 @@ import random
 import threading
 import time
 import sys
+import tempfile
+import uuid
 import subprocess
 from playwright.sync_api import sync_playwright, Playwright, Error as PlaywrightError, TimeoutError as PlaywrightTimeoutError
 
@@ -31,6 +33,7 @@ class BrowserEngine:
         self.network_callback = None
         self.login_phone = ""
         self.login_password = ""
+        self.user_data_dir = ""
 
     def set_network_callback(self, callback):
         self.network_callback = callback
@@ -43,7 +46,7 @@ class BrowserEngine:
         with open(proxy_path, 'r') as f:
             return [line.strip() for line in f if line.strip()]
 
-    def run_session_and_wait(self, target_url, use_proxy, on_launch_callback, device_profile=None, on_browser_created=None):
+    def run_session_and_wait(self, target_url, use_proxy, on_launch_callback, device_profile=None, on_browser_created=None, headless=False):
         """
         Khởi chạy session, gọi callback, và block cho đến khi trình duyệt bị đóng.
         Việc dọn dẹp được thực hiện tự động khi thoát khỏi khối 'with'.
@@ -114,11 +117,17 @@ class BrowserEngine:
                 device_profile['executable_path'] = p.chromium.executable_path
                 print("[*] Đang khởi chạy trình duyệt Chromium sạch...")
                 
+                temp_dir = tempfile.gettempdir()
+                before_dirs = set(os.listdir(temp_dir))
+                
+                my_uuid = uuid.uuid4().hex
+                custom_arg = f"--changeimei-id={my_uuid}"
+                
                 try:
                     # Ưu tiên sử dụng Google Chrome thật cài sẵn trên máy tính để tăng độ uy tín (Bypass reCAPTCHA)
                     self.browser = p.chromium.launch(
                         channel="chrome",
-                        headless=False,
+                        headless=headless,
                         ignore_default_args=["--enable-automation"], # Xóa thanh cảnh báo màu vàng
                         args=[
                             "--disable-blink-features=AutomationControlled",
@@ -127,13 +136,14 @@ class BrowserEngine:
                             "--no-sandbox",
                             "--disable-setuid-sandbox",
                             f"--window-size={v_width},{v_height}",
-                            "--incognito"
+                            "--incognito",
+                            custom_arg
                         ]
                     )
                 except Exception:
                     print("[!] Không tìm thấy Google Chrome, quay lại dùng lõi Chromium mặc định...")
                     self.browser = p.chromium.launch(
-                        headless=False,
+                        headless=headless,
                         ignore_default_args=["--enable-automation"],
                         args=[
                             "--disable-blink-features=AutomationControlled",
@@ -144,9 +154,36 @@ class BrowserEngine:
                             "--no-sandbox",
                             "--disable-setuid-sandbox",
                             f"--window-size={v_width},{v_height}",
-                            "--incognito"
+                            "--incognito",
+                            custom_arg
                         ]
                     )
+                
+                self.user_data_dir = ""
+                try:
+                    import psutil
+                    for proc in psutil.process_iter(['cmdline']):
+                        try:
+                            cmdline = proc.info.get('cmdline')
+                            if cmdline and isinstance(cmdline, list):
+                                if any(custom_arg in arg for arg in cmdline):
+                                    for arg in cmdline:
+                                        if arg.startswith("--user-data-dir="):
+                                            self.user_data_dir = arg.split("=", 1)[1].strip('"').strip("'")
+                                            break
+                                if self.user_data_dir:
+                                    break
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                    
+                if not self.user_data_dir:
+                    after_dirs = set(os.listdir(temp_dir))
+                    new_dirs = after_dirs - before_dirs
+                    pw_dirs = [d for d in new_dirs if "playwright_" in d or "pyright-" in d]
+                    if pw_dirs:
+                        self.user_data_dir = os.path.join(temp_dir, pw_dirs[0])
                 
                 # Phân tích nền tảng để tạo Client-Hints Header chuẩn xác
                 sec_ch_platform = "Windows" if "Win" in device_profile["platform"] else "macOS" if "Mac" in device_profile["platform"] else "Android" if "aarch" in device_profile["platform"] else "Linux"
@@ -441,67 +478,90 @@ class BrowserEngine:
                             if getattr(self, '_pending_action', None) == "fill_login":
                                 self._pending_action = None
                                 try:
-                                    active_page = self.context.pages[-1]
-                                    if "moneytask.top" in active_page.url:
-                                        print("[*] Đang thực thi lệnh tự động điền tài khoản...")
+                                    # Tìm tab có chứa form đăng nhập (ưu tiên tab có ô input password) để tránh bị lỗi do quảng cáo
+                                    target_page = None
+                                    for p in reversed(self.context.pages):
+                                        try:
+                                            if p.evaluate("() => document.querySelectorAll('input[type=\"password\"]').length > 0"):
+                                                target_page = p
+                                                break
+                                        except Exception: pass
+                                    
+                                    if not target_page:
+                                        target_page = self.context.pages[-1]
                                         
-                                        # Lấy tài khoản từ bộ nhớ, gán vào Object (Dictionary) để truyền an toàn xuống JavaScript
-                                        login_data = {
-                                            "phone": getattr(self, 'login_phone', ''),
-                                            "password": getattr(self, 'login_password', '')
-                                        }
+                                    try:
+                                        target_page.bring_to_front()
+                                    except Exception: pass
+                                    
+                                    print(f"[*] Đang thực thi lệnh tự động điền tài khoản...")
+                                    
+                                    login_data = {
+                                        "phone": getattr(self, 'login_phone', ''),
+                                        "password": getattr(self, 'login_password', '')
+                                    }
+                                    
+                                    target_page.evaluate("""(data) => {
+                                        const phone = data.phone;
+                                        const password = data.password;
                                         
-                                        # Dùng JavaScript để điền dữ liệu (vượt qua cơ chế chống Bot của React/Vue)
-                                        active_page.evaluate("""(data) => {
-                                            const phone = data.phone;
-                                            const password = data.password;
-                                            
-                                            const inputs = Array.from(document.querySelectorAll('input'));
+                                        function fillForm(doc) {
+                                            const inputs = Array.from(doc.querySelectorAll('input'));
                                             const passInput = inputs.find(i => i.type === 'password');
-                                            const textInputs = inputs.filter(i => i.type === 'text' || i.type === 'tel' || i.name.includes('phone'));
+                                            const textInputs = inputs.filter(i => i.type === 'text' || i.type === 'tel' || i.name.toLowerCase().includes('phone') || i.name.toLowerCase().includes('user') || i.name.toLowerCase().includes('email'));
                                             
                                             let userInput = null;
                                             if (passInput) {
-                                                // Tìm ô tài khoản nằm trước ô mật khẩu trong cấu trúc HTML
                                                 userInput = textInputs.reverse().find(i => i.compareDocumentPosition(passInput) & Node.DOCUMENT_POSITION_FOLLOWING);
                                             }
                                             if (!userInput && textInputs.length > 0) userInput = textInputs[0];
                                             
-                                            // Thủ thuật vượt qua cơ chế State của React/Vue để trang web ghi nhận dữ liệu thật
                                             const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                                            let filled = false;
                                             
                                             if (userInput && phone) {
                                                 nativeInputValueSetter.call(userInput, phone);
                                                 userInput.dispatchEvent(new Event('input', { bubbles: true }));
                                                 userInput.dispatchEvent(new Event('change', { bubbles: true }));
-                                                userInput.blur(); // Bỏ focus khỏi ô nhập để làm mất gợi ý
+                                                userInput.blur();
+                                                filled = true;
                                             }
                                             if (passInput && password) {
                                                 nativeInputValueSetter.call(passInput, password);
                                                 passInput.dispatchEvent(new Event('input', { bubbles: true }));
                                                 passInput.dispatchEvent(new Event('change', { bubbles: true }));
-                                                passInput.blur(); // Bỏ focus khỏi ô nhập để làm mất gợi ý
+                                                passInput.blur();
+                                                filled = true;
                                             }
-                                            
-                                            // Giả lập thao tác "click vào khoảng trống" trên màn hình
-                                            document.body.click();
-                                        }""", login_data)
-                                        self.auto_action_count += 5 # Gọi JS, mô phỏng Blur/Input
-                                        print("[*] Đã điền xong số điện thoại và mật khẩu!")
+                                            return filled;
+                                        }
                                         
-                                        # Đợi 0.5s để trang web nhận diện sự thay đổi dữ liệu của các ô input
-                                        active_page.wait_for_timeout(500)
-                                        
-                                        print("[*] Đang tự động tìm và nhấn nút Đăng nhập...")
-                                        try:
-                                            btn_selectors = "button[type='submit'], button:has-text('Đăng nhập'), button:has-text('Đăng Nhập'), button:has-text('Login'), input[type='submit']"
-                                            active_page.click(btn_selectors, timeout=3000)
-                                            self.auto_action_count += 1
-                                            print("[*] Đã nhấn nút Đăng nhập. Hoàn tất lệnh tự động!")
-                                        except Exception:
-                                            print("[!] Không tìm thấy nút Đăng nhập tự động. Vui lòng nhấn bằng tay.")
-                                    else:
-                                        print("[!] Bạn chưa mở trang moneytask.top. Vui lòng vào trang đăng nhập trước khi bấm.")
+                                        let success = fillForm(document);
+                                        if (!success) {
+                                            const frames = document.querySelectorAll('iframe');
+                                            for (let i = 0; i < frames.length; i++) {
+                                                try {
+                                                    if (frames[i].contentDocument) {
+                                                        if (fillForm(frames[i].contentDocument)) break;
+                                                    }
+                                                } catch(e) {}
+                                            }
+                                        }
+                                        document.body.click();
+                                    }""", login_data)
+                                    self.auto_action_count += 5
+                                    print("[*] Đã điền xong số điện thoại và mật khẩu!")
+                                    
+                                    target_page.wait_for_timeout(500)
+                                    
+                                    print("[*] Đang tự động tìm và nhấn nút Đăng nhập...")
+                                    try:
+                                        btn_selectors = "button[type='submit'], button:has-text('Đăng nhập'), button:has-text('Đăng Nhập'), button:has-text('Login'), input[type='submit']"
+                                        target_page.click(btn_selectors, timeout=4000)
+                                        self.auto_action_count += 1
+                                        print("[*] Đã nhấn nút Đăng nhập. Hoàn tất lệnh tự động!")
+                                    except Exception:
+                                        print("[!] Không tìm thấy nút Đăng nhập tự động. Vui lòng nhấn bằng tay.")
                                 except Exception as ex:
                                     print(f"[!] Lỗi khi điền thông tin: {ex}")
                                     
@@ -795,6 +855,7 @@ class BrowserEngine:
             self.context = None
             self.browser = None
             self.playwright = None
+            self.user_data_dir = ""
             print("[*] Session đã được dọn dẹp hoàn toàn.")
 
     def close_and_cleanup(self):
