@@ -49,20 +49,23 @@ class AntiDetectGUI:
         mac_num = hex(uuid.getnode()).replace('0x', '').zfill(12)
         mac_address = ':'.join(mac_num[i: i + 2] for i in range(0, 12, 2)).upper()
         
-        self.mac_label = tk.Label(net_frame, text=f"MAC: {mac_address}", font=("Arial", 8, "bold"), fg="#b388ff", bg="#121212")
-        self.mac_label.grid(row=0, column=0, padx=6)
+        self.mac_label = tk.Label(net_frame, text=f"MAC(Real): {mac_address}", font=("Arial", 8, "bold"), fg="#b388ff", bg="#121212")
+        self.mac_label.grid(row=0, column=0, padx=6, sticky="w")
+        
+        self.virtual_mac_label = tk.Label(net_frame, text="MAC(Fake): Đang tạo...", font=("Arial", 8, "bold"), fg="#ff4081", bg="#121212")
+        self.virtual_mac_label.grid(row=1, column=0, padx=6, sticky="w")
 
         self.ip_label = tk.Label(net_frame, text="🌐 IP: Đang kiểm...", font=("Arial", 8, "bold"), fg="#00e676", bg="#121212")
-        self.ip_label.grid(row=0, column=1, padx=6)
+        self.ip_label.grid(row=0, column=1, rowspan=2, padx=6)
 
         self.ping_label = tk.Label(net_frame, text="⚡ Ping: ...", font=("Arial", 8, "bold"), fg="#ffb74d", bg="#121212")
-        self.ping_label.grid(row=0, column=2, padx=6)
+        self.ping_label.grid(row=0, column=2, rowspan=2, padx=6)
 
         self.speed_label = tk.Label(net_frame, text="⬇️ Speed: ...", font=("Arial", 8, "bold"), fg="#4dd0e1", bg="#121212")
-        self.speed_label.grid(row=0, column=3, padx=6)
+        self.speed_label.grid(row=0, column=3, rowspan=2, padx=6)
 
         self.data_label = tk.Label(net_frame, text="Data: 0 MB", font=("Arial", 8, "bold"), fg="#f48fb1", bg="#121212")
-        self.data_label.grid(row=0, column=4, padx=6)
+        self.data_label.grid(row=0, column=4, rowspan=2, padx=6)
 
         self.analysis_label = tk.Label(root, text="🔍 Phân tích mạng: Đang chờ thao tác...", font=("Arial", 8, "bold"), fg="#ffff00", bg="#121212")
         self.analysis_label.pack(pady=(0, 4))
@@ -570,6 +573,9 @@ class AntiDetectGUI:
             self.profiles_used += 1
             self.device_info_frame.config(text=f"Chi tiết trình duyệt ẩn danh (Đang dùng: {self.profiles_used}/5):")
             self.update_device_info_display(self.current_profile)
+            
+            self.virtual_mac_label.config(text="MAC(Fake): Đang chờ khởi chạy...")
+                
             self.btn_ip_that.config(state=tk.NORMAL)
             self.btn_proxy.config(state=tk.NORMAL)
             self.btn_delete.config(state=tk.DISABLED)
@@ -580,6 +586,7 @@ class AntiDetectGUI:
             self.current_profile = None
             self.device_info_frame.config(text="Chi tiết trình duyệt ẩn danh (Hết lượt):")
             self.update_device_info_display(None, exhausted=True)
+            self.virtual_mac_label.config(text="MAC(Fake): Hết thiết bị")
             self.btn_ip_that.config(state=tk.DISABLED)
             self.btn_proxy.config(state=tk.DISABLED)
             self.btn_delete.config(state=tk.DISABLED)
@@ -747,6 +754,10 @@ class AntiDetectGUI:
         self.set_ui_for_browser_state(is_running=True)
         self.status_label.config(text="Trạng thái: Đang khởi chạy trình duyệt...", fg=self.get_color("#ffb74d"))
         
+        # Hiển thị MAC Fake ngay lập tức khi bắt đầu chạy thay vì chờ Google search xong
+        if self.current_profile and "mac_address" in self.current_profile:
+            self.virtual_mac_label.config(text=f"MAC(Fake): {self.current_profile['mac_address']}")
+
         try:
             # Callback này sẽ được gọi từ worker thread khi trình duyệt đã mở thành công
             def on_launch_success(device_profile):

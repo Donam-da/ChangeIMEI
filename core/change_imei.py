@@ -320,4 +320,8 @@ class DeviceFaker:
         selected_os["canvas_noise_g"] = random.randint(0, 255)
         selected_os["canvas_noise_b"] = random.randint(0, 255)
 
+        # Tạo MAC address ngẫu nhiên (chỉ mang tính chất định danh nội bộ, Web không đọc được MAC qua trình duyệt)
+        mac = [0x02, random.randint(0x00, 0xff), random.randint(0x00, 0xff), random.randint(0x00, 0xff), random.randint(0x00, 0xff), random.randint(0x00, 0xff)]
+        selected_os["mac_address"] = ':'.join(f"{b:02x}" for b in mac).upper()
+
         return selected_os
