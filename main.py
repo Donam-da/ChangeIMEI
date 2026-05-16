@@ -17,8 +17,8 @@ class AntiDetectGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("ChangeIMEI Anti-Detect Browser")
-        self.root.geometry("675x400")
-        self.root.aspect(9, 5, 9, 5) # Khóa tỷ lệ khung hình cố định, chỉ cho kéo đường chéo
+        self.root.geometry("800x540")
+        self.root.aspect(40, 27, 40, 27) # Khóa tỷ lệ khung hình cố định, chỉ cho kéo đường chéo
         self.root.configure(bg="#121212")
         
         self.engine = BrowserEngine()
@@ -172,7 +172,7 @@ class AntiDetectGUI:
         self.device_info_frame = tk.LabelFrame(root, text="Chi tiết trình duyệt ẩn danh vừa tạo:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
         self.device_info_frame.pack(pady=(8, 0), fill=tk.BOTH, expand=False, padx=15)
         
-        self.device_info_text = tk.Text(self.device_info_frame, height=3, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
+        self.device_info_text = tk.Text(self.device_info_frame, height=5, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
         self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
         self.status_label = tk.Label(root, text="Trạng thái: Sẵn sàng", fg="#a0a0a0", bg="#121212", font=("Arial", 7))
@@ -217,8 +217,8 @@ class AntiDetectGUI:
         elif "1.6" in scale_str: self.current_scale = 1.6
         else: self.current_scale = 1.0
 
-        new_w = int(900 * self.current_scale)
-        new_h = int(500 * self.current_scale)
+        new_w = int(800 * self.current_scale)
+        new_h = int(540 * self.current_scale)
         self.root.geometry(f"{new_w}x{new_h}")
 
         # Tính toán lại tọa độ cho các thành phần neo cố định (Ghim, Theme, Đồng hồ)
