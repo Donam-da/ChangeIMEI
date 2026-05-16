@@ -138,8 +138,11 @@ class BrowserEngine:
                             "--no-sandbox",
                             f"--window-size={v_width},{v_height}"
                         ],
+                        user_agent=device_profile["user_agent"],
                         viewport=device_profile["viewport"],
                         is_mobile=device_profile["is_mobile"],
+                        has_touch=device_profile["is_mobile"],
+                        device_scale_factor=device_profile.get("device_scale_factor", 1.25),
                         proxy=proxy_settings,
                         color_scheme=random.choice(["light", "dark"])
                     )
@@ -155,8 +158,11 @@ class BrowserEngine:
                             "--no-sandbox",
                             f"--window-size={v_width},{v_height}"
                         ],
+                        user_agent=device_profile["user_agent"],
                         viewport=device_profile["viewport"],
                         is_mobile=device_profile["is_mobile"],
+                        has_touch=device_profile["is_mobile"],
+                        device_scale_factor=device_profile.get("device_scale_factor", 1.25),
                         proxy=proxy_settings,
                         color_scheme=random.choice(["light", "dark"])
                     )
@@ -193,6 +199,18 @@ class BrowserEngine:
                     f"delete window.__playwright;\n"
                     f"delete window.__pw_manual;\n"
                     f"delete window.__PW_outOfContext;\n"
+                    f"\n"
+                    f"// --- HỖ TRỢ ZOOM BẰNG CTRL + CUỘN CHUỘT --- \n"
+                    f"window.addEventListener('wheel', function(e) {{\n"
+                    f"    if (e.ctrlKey) {{\n"
+                    f"        e.preventDefault();\n"
+                    f"        let zoom = parseFloat(document.body.style.zoom) || window.devicePixelRatio || 1.0;\n"
+                    f"        zoom += e.deltaY < 0 ? 0.15 : -0.15;\n"
+                    f"        if (zoom < 0.5) zoom = 0.5;\n"
+                    f"        if (zoom > 4.0) zoom = 4.0;\n"
+                    f"        document.body.style.zoom = zoom;\n"
+                    f"    }}\n"
+                    f"}}, {{ passive: false }});\n"
                 )
 
                 # --- ÉP MỞ LINK TRONG CÙNG TAB (ÁP DỤNG CHO MỌI TAB TRONG CONTEXT) ---
