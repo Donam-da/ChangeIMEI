@@ -49,10 +49,10 @@ class AntiDetectGUI:
         mac_num = hex(uuid.getnode()).replace('0x', '').zfill(12)
         mac_address = ':'.join(mac_num[i: i + 2] for i in range(0, 12, 2)).upper()
         
-        self.mac_label = tk.Label(net_frame, text=f"MAC(Real): {mac_address}", font=("Arial", 8, "bold"), fg="#b388ff", bg="#121212")
+        self.mac_label = tk.Label(net_frame, text=f"MAC(Real): {mac_address}", font=("Arial", 8, "bold"), fg="#b388ff", bg="#121212", width=32, anchor="w")
         self.mac_label.grid(row=0, column=0, padx=6, sticky="w")
         
-        self.virtual_mac_label = tk.Label(net_frame, text="MAC(Fake): Đang tạo...", font=("Arial", 8, "bold"), fg="#ff4081", bg="#121212")
+        self.virtual_mac_label = tk.Label(net_frame, text="MAC(Fake): Đang tạo...", font=("Arial", 8, "bold"), fg="#ff4081", bg="#121212", width=32, anchor="w")
         self.virtual_mac_label.grid(row=1, column=0, padx=6, sticky="w")
 
         self.ip_label = tk.Label(net_frame, text="🌐 IP: Đang kiểm...", font=("Arial", 8, "bold"), fg="#00e676", bg="#121212")
