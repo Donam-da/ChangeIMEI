@@ -17,7 +17,16 @@ class AntiDetectGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("ChangeIMEI Anti-Detect Browser")
-        self.root.geometry("800x540")
+        
+        # Căn giữa cửa sổ phần mềm chính trên màn hình lúc mới bật
+        window_w = 800
+        window_h = 540
+        screen_w = root.winfo_screenwidth()
+        screen_h = root.winfo_screenheight()
+        pos_x = (screen_w // 2) - (window_w // 2)
+        pos_y = (screen_h // 2) - (window_h // 2)
+        self.root.geometry(f"{window_w}x{window_h}+{pos_x}+{pos_y}")
+        
         self.root.aspect(40, 27, 40, 27) # Khóa tỷ lệ khung hình cố định, chỉ cho kéo đường chéo
         self.root.configure(bg="#121212")
         
@@ -27,7 +36,7 @@ class AntiDetectGUI:
         self.credentials_file = os.path.join(os.path.dirname(__file__), 'data', 'credentials.json')
         
         # Thiết kế các thành phần Giao diện (UI)
-        tk.Label(root, text="CÔNG CỤ ANTI-DETECT: CHANGE IMEI", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=10)
+        tk.Label(root, text="Fix 24h upto", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=10)
         
         self.current_scale = 1.0
         self.is_pinned = False
@@ -539,7 +548,29 @@ class AntiDetectGUI:
 
     def regenerate_profiles(self):
         if self.engine.playwright is not None or (hasattr(self, '_is_wiping') and self._is_wiping):
-            messagebox.showwarning("Cảnh báo", "Vui lòng tắt Trình duyệt và Dọn dẹp session đang chạy trước khi tạo lứa thiết bị mới!")
+            dialog = tk.Toplevel(self.root)
+            dialog.title("Cảnh báo")
+            
+            dialog_w = int(350 * self.current_scale)
+            dialog_h = int(120 * self.current_scale)
+            self.root.update_idletasks()
+            
+            screen_w = self.root.winfo_screenwidth()
+            screen_h = self.root.winfo_screenheight()
+            pos_x = (screen_w // 2) - (dialog_w // 2)
+            pos_y = (screen_h // 2) - (dialog_h // 2)
+            
+            dialog.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
+            dialog.configure(bg="#121212")
+            dialog.transient(self.root)
+            dialog.grab_set()
+            dialog.attributes("-topmost", True) # Nổi lên trên cùng
+            
+            tk.Label(dialog, text="Hãy đóng trình duyệt đang chạy để tiếp tục!", font=("Arial", 9, "bold"), fg="#ffb74d", bg="#121212").pack(expand=True, pady=(20, 10))
+            tk.Button(dialog, text="Đóng", command=dialog.destroy, bg="#333333", fg="white", font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#555555", activeforeground="white", width=10).pack(pady=(0, 20))
+            
+            self._scale_widget_tree(dialog, self.current_scale)
+            self.apply_current_theme(dialog)
             return
         self.show_initialization()
 
@@ -554,13 +585,17 @@ class AntiDetectGUI:
         dialog_w = int(420 * self.current_scale)
         dialog_h = int(150 * self.current_scale)
         self.root.update_idletasks()
-        pos_x = self.root.winfo_rootx() + (self.root.winfo_width() // 2) - (dialog_w // 2)
-        pos_y = self.root.winfo_rooty() + (self.root.winfo_height() // 2) - (dialog_h // 2)
+        
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        pos_x = (screen_w // 2) - (dialog_w // 2)
+        pos_y = (screen_h // 2) - (dialog_h // 2)
         prog_win.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
         
         prog_win.configure(bg="#121212")
         prog_win.transient(self.root)
         prog_win.grab_set()
+        prog_win.attributes("-topmost", True) # Nổi lên trên cùng giống hộp thoại xóa
         prog_win.protocol("WM_DELETE_WINDOW", lambda: None)
         
         tk.Label(prog_win, text="Đang khởi tạo cấu hình ẩn danh hoàn toàn mới...", font=("Arial", 8, "bold"), fg="#00ffff", bg="#121212").pack(pady=8)
@@ -843,15 +878,17 @@ class AntiDetectGUI:
         dialog_w = int(420 * self.current_scale)
         dialog_h = int(150 * self.current_scale)
         self.root.update_idletasks()
-        main_x = self.root.winfo_rootx()
-        main_y = self.root.winfo_rooty()
-        main_w = self.root.winfo_width()
-        main_h = self.root.winfo_height()
         
-        prog_win.geometry(f"{dialog_w}x{dialog_h}+{main_x + (main_w // 2) - (dialog_w // 2)}+{main_y + (main_h // 2) - (dialog_h // 2)}")
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        pos_x = (screen_w // 2) - (dialog_w // 2)
+        pos_y = (screen_h // 2) - (dialog_h // 2)
+        
+        prog_win.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
         prog_win.configure(bg="#121212")
         prog_win.transient(self.root)
         prog_win.grab_set() # Khóa màn hình chính
+        prog_win.attributes("-topmost", True) # Ép hộp thoại nổi lên trên cùng (xuyên qua trình duyệt nếu có)
         prog_win.protocol("WM_DELETE_WINDOW", lambda: None) # Vô hiệu hóa nút X để tránh làm gián đoạn
 
         tk.Label(prog_win, text="Đang tiêu hủy dấu vết, Cookie, Lịch sử...", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=10)
