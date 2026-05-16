@@ -111,12 +111,12 @@ class AntiDetectGUI:
         self.btn_auto_login.grid(row=0, column=2, padx=4, pady=4)
         self.btn_auto_login.bind("<Double-1>", self.show_credentials_dialog)
 
-        self.btn_auto_task_step = tk.Button(btn_frame, text="🤖 Làm nhiệm vụ Upto Step", 
+        self.btn_auto_task_step = tk.Button(btn_frame, text="Upto step (thử nghiệm)", 
                                         command=self.trigger_auto_task_step, bg="#263238", fg="#00bcd4", width=18,
                                         state=tk.DISABLED, **btn_style)
         self.btn_auto_task_step.grid(row=1, column=0, padx=4, pady=4)
 
-        self.btn_auto_task = tk.Button(btn_frame, text="🤖 Làm nhiệm vụ Lấy Mã", 
+        self.btn_auto_task = tk.Button(btn_frame, text="Lấy mã (thử nghiệm)", 
                                         command=self.trigger_auto_task, bg="#263238", fg="#00bcd4", width=18,
                                         state=tk.DISABLED, **btn_style)
         self.btn_auto_task.grid(row=1, column=1, padx=4, pady=4)
@@ -127,7 +127,7 @@ class AntiDetectGUI:
 
         self.btn_delete = tk.Button(delete_and_scale_frame, text="🗑️ Delete",
                                     command=self.delete_session, bg="#b71c1c", fg="white", width=13,
-                                    state=tk.DISABLED, font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white")
+                                    state=tk.DISABLED, font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white", disabledforeground="#ffcdd2")
         self.btn_delete.pack(side=tk.LEFT, padx=(0, 4))
 
         self.scale_var = tk.StringVar(value="Size: x1.0")
