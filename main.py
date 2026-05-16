@@ -99,14 +99,14 @@ class AntiDetectGUI:
 
         self.btn_ip_that = tk.Button(btn_frame, text="Mở Trình Duyệt", 
                                      command=self.launch_ip_that, bg="#00bcd4", fg="black", width=18, **btn_style)
-        self.btn_ip_that.grid(row=0, column=0, padx=4, pady=4)
+        self.btn_ip_that.grid(row=0, column=1, padx=4, pady=4)
         
         self.btn_proxy = tk.Button(btn_frame, text="Proxy nếu có", 
-                                   command=self.launch_proxy, bg="#00838f", fg="white", width=18, **btn_style)
-        self.btn_proxy.grid(row=0, column=1, padx=4, pady=4)
+                                   command=self.launch_proxy, bg="#a52a2a", fg="white", width=18, **btn_style)
+        self.btn_proxy.grid(row=0, column=0, padx=4, pady=4)
 
         self.btn_auto_login = tk.Button(btn_frame, text="🔑 Auto đăng nhập", 
-                                        command=self.trigger_auto_login, bg="#263238", fg="#00bcd4", width=18,
+                                        command=self.trigger_auto_login, bg="#81c784", fg="black", width=18,
                                         state=tk.DISABLED, **btn_style)
         self.btn_auto_login.grid(row=0, column=2, padx=4, pady=4)
         self.btn_auto_login.bind("<Double-1>", self.show_credentials_dialog)
@@ -139,21 +139,21 @@ class AntiDetectGUI:
         filter_frame = tk.Frame(btn_frame, bg="#121212")
         filter_frame.grid(row=2, column=0, columnspan=3, pady=(6, 0))
         
-        tk.Label(filter_frame, text="🌍 Chọn Múi giờ giả lập:", font=("Arial", 8, "bold"), fg="#e0e0e0", bg="#121212").pack(side=tk.LEFT, padx=4)
+        tk.Label(filter_frame, text="🌍 Chọn Múi giờ:", font=("Arial", 8, "bold"), fg="#e0e0e0", bg="#121212").pack(side=tk.LEFT, padx=4)
         
-        self.tz_var = tk.StringVar(value="Ngẫu nhiên (Toàn cầu)")
+        self.tz_var = tk.StringVar(value="Toàn cầu")
         self.tz_map = {
-            "Ngẫu nhiên (Toàn cầu)": "Auto",
-            "Châu Á (Asia)": "Asia",
-            "Châu Âu (Europe)": "Europe",
-            "Châu Mỹ (Americas)": "America",
-            "Châu Phi (Africa)": "Africa",
-            "Châu Đại Dương (Oceania)": "Oceania"
+            "Toàn cầu": "Auto",
+            "Châu Á": "Asia",
+            "Châu Âu": "Europe",
+            "Châu Mỹ": "America",
+            "Châu Phi": "Africa",
+            "Châu Đại Dương": "Oceania"
         }
-        self.tz_cb = ttk.Combobox(filter_frame, textvariable=self.tz_var, values=list(self.tz_map.keys()), state="readonly", font=("Arial", 8), width=24)
+        self.tz_cb = ttk.Combobox(filter_frame, textvariable=self.tz_var, values=list(self.tz_map.keys()), state="readonly", font=("Arial", 8), width=14)
         self.tz_cb.pack(side=tk.LEFT, padx=(0, 10))
         
-        self.btn_regen = tk.Button(filter_frame, text="🔄 Tạo thiết bị mới", command=self.regenerate_profiles, bg="#333333", fg="#00e676", font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#555555", activeforeground="#00e676")
+        self.btn_regen = tk.Button(filter_frame, text="🔄 Tổ hợp mới", command=self.regenerate_profiles, bg="#333333", fg="#00e676", font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#555555", activeforeground="#00e676")
         self.btn_regen.pack(side=tk.LEFT)
         # ---------------------------------
 
@@ -186,7 +186,7 @@ class AntiDetectGUI:
         bottom_container.rowconfigure(0, weight=1)
 
         # Cột 1: Hiển thị thông số cấu hình giả lập
-        self.device_info_frame = tk.LabelFrame(bottom_container, text="Chi tiết trình duyệt ẩn danh vừa tạo:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
+        self.device_info_frame = tk.LabelFrame(bottom_container, text="Chi tiết trình duyệt vừa tạo:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
         self.device_info_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
         
         self.device_info_text = tk.Text(self.device_info_frame, height=6, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
@@ -647,7 +647,7 @@ class AntiDetectGUI:
         if self.profiles_queue:
             self.current_profile = self.profiles_queue.pop(0)
             self.profiles_used += 1
-            self.device_info_frame.config(text=f"Chi tiết trình duyệt ẩn danh (Đang dùng: {self.profiles_used}/5):")
+            self.device_info_frame.config(text=f"Chi tiết trình duyệt (Đang dùng: {self.profiles_used}/5):")
             self.update_device_info_display(self.current_profile)
             
             self.virtual_mac_label.config(text="MAC(Fake): Đang chờ khởi chạy...")
@@ -660,7 +660,7 @@ class AntiDetectGUI:
             self.status_label.config(text=f"Trạng thái: Sẵn sàng (Thiết bị {self.profiles_used}/5)", fg=self.get_color("#00e676"))
         else:
             self.current_profile = None
-            self.device_info_frame.config(text="Chi tiết trình duyệt ẩn danh (Hết lượt):")
+            self.device_info_frame.config(text="Chi tiết trình duyệt (Hết lượt):")
             self.update_device_info_display(None, exhausted=True)
             self.virtual_mac_label.config(text="MAC(Fake): Hết thiết bị")
             self.btn_ip_that.config(state=tk.DISABLED)
