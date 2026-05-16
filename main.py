@@ -792,7 +792,13 @@ class AntiDetectGUI:
                 # Trên Linux và các hệ thống tương tự Unix
                 path = os.path.join(os.path.expanduser("~"), ".cache", "ms-playwright")
             
-            return path if os.path.exists(path) else "Chưa tìm thấy (Cần chạy trình duyệt lần đầu để cài đặt)"
+            if os.path.exists(path):
+                chromium_dirs = [d for d in os.listdir(path) if d.startswith("chromium")]
+                if chromium_dirs:
+                    chromium_dirs.sort(reverse=True) # Ưu tiên lấy thư mục phiên bản mới nhất
+                    return os.path.join(path, chromium_dirs[0])
+                return path
+            return "Chưa tìm thấy (Cần chạy trình duyệt lần đầu để cài đặt)"
         except Exception as e:
             print(f"Lỗi khi lấy đường dẫn Playwright: {e}")
             return "Không thể xác định đường dẫn."
