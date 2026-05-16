@@ -271,8 +271,6 @@ class AntiDetectGUI:
 
         self._is_wiping = False
         self.current_profile = None
-        self.profiles_queue = []
-        self.profiles_used = 0
         
         # Vô hiệu hóa nút trong lúc chờ khởi tạo cấu hình ban đầu
         self.btn_ip_that.config(state=tk.DISABLED)
@@ -791,123 +789,50 @@ class AntiDetectGUI:
         self.show_initialization()
 
     def show_initialization(self):
-        """Hiển thị tiến trình khởi tạo thiết bị giả lập mới khi mở tool hoặc sau khi dọn dẹp."""
+        """Khởi tạo một thiết bị giả lập hoàn toàn mới ngay lập tức."""
         self.btn_ip_that.config(state=tk.DISABLED)
         self.btn_proxy.config(state=tk.DISABLED)
         
-        prog_win = tk.Toplevel(self.root)
-        prog_win.withdraw()
-        prog_win.title("Đang nạp môi trường...")
-        
-        dialog_w = int(420 * self.current_scale)
-        dialog_h = int(150 * self.current_scale)
-        self.root.update_idletasks()
-        
-        main_x = self.root.winfo_rootx()
-        main_y = self.root.winfo_rooty()
-        main_w = self.root.winfo_width()
-        main_h = self.root.winfo_height()
-        pos_x = main_x + (main_w // 2) - (dialog_w // 2)
-        pos_y = main_y + (main_h // 2) - (dialog_h // 2)
-        prog_win.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
-        
-        prog_win.configure(bg="#121212")
-        prog_win.transient(self.root)
-        prog_win.grab_set()
-        prog_win.attributes("-topmost", True) # Nổi lên trên cùng giống hộp thoại xóa
-        prog_win.protocol("WM_DELETE_WINDOW", lambda: None)
-        
-        tk.Label(prog_win, text="Đang khởi tạo cấu hình ẩn danh hoàn toàn mới...", font=("Arial", 8, "bold"), fg="#00e676", bg="#121212").pack(pady=8)
-        
-        progress = ttk.Progressbar(prog_win, orient=tk.HORIZONTAL, length=int(380*self.current_scale), mode='determinate')
-        progress.pack(pady=4)
-        
-        step_label = tk.Label(prog_win, text="Bắt đầu...", font=("Courier", 7), fg="#ffb74d", bg="#121212")
-        step_label.pack(pady=4)
-        
-        self._scale_widget_tree(prog_win, self.current_scale)
-        self.apply_current_theme(prog_win)
-        
-        # Chỉ hiển thị bảng thông báo khởi tạo nếu cửa sổ phần mềm chính đang không bị ẩn
-        if self.root.state() != 'withdrawn':
-            prog_win.deiconify()
-        
-        steps = [
-            "Đang sinh dữ liệu thiết bị 1/5...",
-            "Đang sinh dữ liệu thiết bị 2/5...",
-            "Đang sinh dữ liệu thiết bị 3/5...",
-            "Đang sinh dữ liệu thiết bị 4/5...",
-            "Đang sinh dữ liệu thiết bị 5/5...",
-            "Hoàn tất nạp 5 cấu hình thiết bị sạch!"
-        ]
-        
-        def do_step(index):
-            if index < len(steps):
-                progress['value'] = (index / (len(steps) - 1)) * 100
-                step_label.config(text=steps[index])
-                self.root.after(random.randint(150, 400), do_step, index + 1)
-            else:
-                # Tạo sẵn 5 profile ảo (thông số) vào hàng đợi. Lúc này temp vẫn sạch.
-                preferred_tz = "Auto"
-                if hasattr(self, 'tz_map') and hasattr(self, 'tz_var'):
-                    preferred_tz = self.tz_map.get(self.tz_var.get(), "Auto")
-                    
-                preferred_platform = "Mobile"
-                if hasattr(self, 'platform_var'):
-                    p_val = self.platform_var.get()
-                    if p_val == "Máy tính": preferred_platform = "Desktop"
-                    elif p_val == "Ngẫu nhiên": preferred_platform = "Random"
-                    
-                self.profiles_queue = [self.engine.device_faker.generate_new_device(preferred_timezone=preferred_tz, platform_type=preferred_platform) for _ in range(5)]
-                self.profiles_used = 0
-                self.root.after(400, prog_win.destroy)
-                self.load_next_profile()
-                
-        do_step(0)
-
-    def load_next_profile(self):
-        """Lấy profile tiếp theo trong hàng đợi ra để sử dụng."""
-        if self.profiles_queue:
-            self.current_profile = self.profiles_queue.pop(0)
-            self.profiles_used += 1
-            self.device_info_frame.config(text=f"Chi tiết trình duyệt (Đang dùng: {self.profiles_used}/5):")
-            self.update_device_info_display(self.current_profile)
+        preferred_tz = "Auto"
+        if hasattr(self, 'tz_map') and hasattr(self, 'tz_var'):
+            preferred_tz = self.tz_map.get(self.tz_var.get(), "Auto")
             
-            self.virtual_mac_label.config(text="MAC(Fake): Đang chờ khởi chạy...")
-                
-            self.btn_ip_that.config(state=tk.NORMAL)
-            self.btn_proxy.config(state=tk.NORMAL)
-            self.btn_delete.config(state=tk.DISABLED)
-            self.btn_auto_task.config(state=tk.DISABLED)
-            self.btn_auto_task_step.config(state=tk.DISABLED)
-            self.status_label.config(text=f"Trạng thái: Sẵn sàng (Thiết bị {self.profiles_used}/5)", fg=self.get_color("#00e676"))
+        preferred_platform = "Mobile"
+        if hasattr(self, 'platform_var'):
+            p_val = self.platform_var.get()
+            if p_val == "Máy tính": preferred_platform = "Desktop"
+            elif p_val == "Ngẫu nhiên": preferred_platform = "Random"
             
-            if getattr(self, 'auto_launch_hidden', False):
-                self.auto_launch_hidden = False # Chỉ chạy tự động ở lần nạp cấu hình đầu tiên
-                self.root.after(500, lambda: self.launch_ip_that(headless=True))
-        else:
-            self.current_profile = None
-            self.device_info_frame.config(text="Chi tiết trình duyệt (Hết lượt):")
-            self.update_device_info_display(None, exhausted=True)
-            self.virtual_mac_label.config(text="MAC(Fake): Hết thiết bị")
-            self.btn_ip_that.config(state=tk.DISABLED)
-            self.btn_proxy.config(state=tk.DISABLED)
-            self.btn_delete.config(state=tk.DISABLED)
-            self.status_label.config(text="Trạng thái: Hết thiết bị. Vui lòng tắt phần mềm và mở lại.", fg=self.get_color("#ff5252"))
-
+        # Sinh 1 cấu hình duy nhất ngay lập tức
+        self.current_profile = self.engine.device_faker.generate_new_device(preferred_timezone=preferred_tz, platform_type=preferred_platform)
+        
+        self.device_info_frame.config(text="Chi tiết trình duyệt:")
+        self.update_device_info_display(self.current_profile)
+        
+        self.virtual_mac_label.config(text="MAC(Fake): Đang chờ khởi chạy...")
+        
+        self.btn_ip_that.config(state=tk.NORMAL)
+        self.btn_proxy.config(state=tk.NORMAL)
+        self.btn_delete.config(state=tk.DISABLED)
+        self.btn_auto_task.config(state=tk.DISABLED)
+        self.btn_auto_task_step.config(state=tk.DISABLED)
+        self.status_label.config(text="Trạng thái: Sẵn sàng (Thiết bị mới)", fg=self.get_color("#00e676"))
+        
         if hasattr(self, 'path_entry'):
             self.path_entry.config(state=tk.NORMAL)
             self.path_entry.delete(0, tk.END)
             self.path_entry.insert(0, self.get_playwright_browser_path(is_running=False))
             self.path_entry.config(state='readonly')
+            
+        if getattr(self, 'auto_launch_hidden', False):
+            self.auto_launch_hidden = False # Chỉ chạy tự động ở lần nạp cấu hình đầu tiên
+            self.root.after(500, lambda: self.launch_ip_that(headless=True))
 
-    def update_device_info_display(self, profile, exhausted=False):
+    def update_device_info_display(self, profile):
         """Cập nhật khung hiển thị thông tin thiết bị đã tạo."""
         self.device_info_text.config(state=tk.NORMAL)
         self.device_info_text.delete(1.0, tk.END)
-        if exhausted:
-            self.device_info_text.insert(tk.END, "Đã sử dụng hết 5 thiết bị sạch.\n\nVui lòng tắt phần mềm và mở lại (chạy lại lệnh python main.py)\nđể khởi tạo một lứa 5 thiết bị hoàn toàn mới.")
-        elif profile:
+        if profile:
             info_str = (
                 f"Hệ điều hành : {profile.get('platform', 'N/A')} (Mobile: {profile.get('is_mobile', False)})\n"
                 f"Độ phân giải : {profile['viewport']['width']}x{profile['viewport']['height']}\n"
@@ -920,10 +845,7 @@ class AntiDetectGUI:
 
     def on_closing(self):
         """Xử lý sự kiện đóng cửa sổ chính của ứng dụng."""
-        if self.engine.playwright is not None:
-            self.show_auto_close_dialog()
-        else:
-            self.root.destroy()
+        self.show_auto_close_dialog()
 
     def show_auto_close_dialog(self):
         """Hiển thị hộp thoại đếm ngược 3s trước khi tự động dọn dẹp và thoát."""
@@ -942,7 +864,7 @@ class AntiDetectGUI:
         dialog.transient(self.root) # Nổi trên cửa sổ chính
         dialog.grab_set() # Khóa cửa sổ chính cho đến khi xử lý xong hộp thoại
         
-        tk.Label(dialog, text="Một phiên làm việc ẩn danh đang tồn tại!\nBạn hãy dọn dẹp hoặc hệ thống sẽ tự động dọn dẹp sau:", font=("Arial", 8), fg="#e0e0e0", bg="#121212").pack(pady=8)
+        tk.Label(dialog, text="Đang chuẩn bị đóng chương trình!\nHệ thống sẽ dọn sạch toàn bộ Profile ẩn danh sau:", font=("Arial", 8), fg="#e0e0e0", bg="#121212").pack(pady=8)
         
         countdown_label = tk.Label(dialog, text="3", font=("Arial", 14, "bold"), fg="#ff5252", bg="#121212")
         countdown_label.pack()
@@ -966,6 +888,16 @@ class AntiDetectGUI:
                     current_path = self.path_entry.get()
                     if current_path and os.path.exists(current_path) and ("Clean_Profile_" in current_path or "playwright_" in current_path or "pyright-" in current_path):
                         shutil.rmtree(current_path, ignore_errors=True)
+                except Exception: pass
+                
+                # Quét và xóa TẤT CẢ các thư mục Profile ẩn danh còn sót lại trên ổ cứng
+                try:
+                    base_dir = self.engine.device_faker.base_dir
+                    if os.path.exists(base_dir):
+                        for item in os.listdir(base_dir):
+                            item_path = os.path.join(base_dir, item)
+                            if os.path.isdir(item_path) and "Clean_Profile_" in item:
+                                shutil.rmtree(item_path, ignore_errors=True)
                 except Exception: pass
                 
                 self.root.destroy()
@@ -1190,7 +1122,7 @@ class AntiDetectGUI:
                     def finish_wipe():
                         self._is_wiping = False
                         prog_win.destroy()
-                        self.load_next_profile()
+                        self.show_initialization()
                         
                     self.root.after(800, finish_wipe)
                 wipe_browser_folder()
