@@ -17,7 +17,7 @@ class AntiDetectGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("ChangeIMEI Anti-Detect Browser")
-        self.root.geometry("675x375")
+        self.root.geometry("675x400")
         self.root.aspect(9, 5, 9, 5) # Khóa tỷ lệ khung hình cố định, chỉ cho kéo đường chéo
         self.root.configure(bg="#121212")
         
@@ -123,9 +123,31 @@ class AntiDetectGUI:
         self.scale_cb.pack(side=tk.LEFT)
         self.scale_cb.bind("<<ComboboxSelected>>", self.apply_scale)
 
+        # --- BỘ LỌC CẤU HÌNH (MÚI GIỜ) ---
+        filter_frame = tk.Frame(btn_frame, bg="#121212")
+        filter_frame.grid(row=2, column=0, columnspan=3, pady=(6, 0))
+        
+        tk.Label(filter_frame, text="🌍 Chọn Múi giờ giả lập:", font=("Arial", 8, "bold"), fg="#e0e0e0", bg="#121212").pack(side=tk.LEFT, padx=4)
+        
+        self.tz_var = tk.StringVar(value="Ngẫu nhiên (Toàn cầu)")
+        self.tz_map = {
+            "Ngẫu nhiên (Toàn cầu)": "Auto",
+            "Châu Á (Asia)": "Asia",
+            "Châu Âu (Europe)": "Europe",
+            "Châu Mỹ (Americas)": "America",
+            "Châu Phi (Africa)": "Africa",
+            "Châu Đại Dương (Oceania)": "Oceania"
+        }
+        self.tz_cb = ttk.Combobox(filter_frame, textvariable=self.tz_var, values=list(self.tz_map.keys()), state="readonly", font=("Arial", 8), width=24)
+        self.tz_cb.pack(side=tk.LEFT, padx=(0, 10))
+        
+        self.btn_regen = tk.Button(filter_frame, text="🔄 Tạo thiết bị mới", command=self.regenerate_profiles, bg="#333333", fg="#00e676", font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#555555", activeforeground="#00e676")
+        self.btn_regen.pack(side=tk.LEFT)
+        # ---------------------------------
+
         # --- Hiển thị đường dẫn dữ liệu ---
         info_frame = tk.Frame(root, bg="#121212")
-        info_frame.pack(pady=(8, 0), fill=tk.X, padx=15)
+        info_frame.pack(pady=(4, 0), fill=tk.X, padx=15)
 
         tk.Label(info_frame, 
                  text="Nơi lưu trữ trình duyệt (máy ảo):", 
@@ -477,6 +499,12 @@ class AntiDetectGUI:
         else:
             self.btn_pin.config(text="📌 Ghim", fg=self.get_color("#a0a0a0"))
 
+    def regenerate_profiles(self):
+        if self.engine.playwright is not None or (hasattr(self, '_is_wiping') and self._is_wiping):
+            messagebox.showwarning("Cảnh báo", "Vui lòng tắt Trình duyệt và Dọn dẹp session đang chạy trước khi tạo lứa thiết bị mới!")
+            return
+        self.show_initialization()
+
     def show_initialization(self):
         """Hiển thị tiến trình khởi tạo thiết bị giả lập mới khi mở tool hoặc sau khi dọn dẹp."""
         self.btn_ip_that.config(state=tk.DISABLED)
@@ -524,7 +552,12 @@ class AntiDetectGUI:
                 self.root.after(random.randint(150, 400), do_step, index + 1)
             else:
                 # Tạo sẵn 5 profile ảo (thông số) vào hàng đợi. Lúc này temp vẫn sạch.
-                self.profiles_queue = [self.engine.device_faker.generate_new_device() for _ in range(5)]
+                preferred_tz = "Auto"
+                if hasattr(self, 'tz_map') and hasattr(self, 'tz_var'):
+                    preferred_tz = self.tz_map.get(self.tz_var.get(), "Auto")
+                    
+                self.profiles_queue = [self.engine.device_faker.generate_new_device(preferred_timezone=preferred_tz) for _ in range(5)]
+                self.profiles_used = 0
                 self.root.after(400, prog_win.destroy)
                 self.load_next_profile()
                 
