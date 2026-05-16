@@ -43,7 +43,7 @@ class BrowserEngine:
         with open(proxy_path, 'r') as f:
             return [line.strip() for line in f if line.strip()]
 
-    def run_session_and_wait(self, target_url, use_proxy, on_launch_callback, device_profile=None):
+    def run_session_and_wait(self, target_url, use_proxy, on_launch_callback, device_profile=None, on_browser_created=None):
         """
         Khởi chạy session, gọi callback, và block cho đến khi trình duyệt bị đóng.
         Việc dọn dẹp được thực hiện tự động khi thoát khỏi khối 'with'.
@@ -168,6 +168,9 @@ class BrowserEngine:
                         "sec-ch-ua-platform": f'"{sec_ch_platform}"'
                     }
                 )
+                
+                if on_browser_created:
+                    on_browser_created()
 
                 # --- TÍNH NĂNG GIÁM SÁT NETWORK & DỰ ĐOÁN LỖI 404 ---
                 self.total_requests = 0

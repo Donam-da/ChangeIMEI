@@ -108,7 +108,7 @@ class AntiDetectGUI:
 
         # Các nút bấm
         btn_frame = tk.Frame(root, bg="#121212")
-        btn_frame.pack(pady=8)
+        btn_frame.pack(pady=(8, 4))
 
         btn_style = {"font": ("Arial", 8, "bold"), "relief": tk.FLAT, "activebackground": "#00e5ff", "activeforeground": "black"}
 
@@ -136,25 +136,16 @@ class AntiDetectGUI:
                                         state=tk.DISABLED, **btn_style)
         self.btn_auto_task.grid(row=1, column=1, padx=4, pady=4)
 
-        # Nhóm Nút Xóa và Bộ lọc tỷ lệ vào chung một ô lưới để không bao giờ bị đè
-        delete_and_scale_frame = tk.Frame(btn_frame, bg="#121212")
-        delete_and_scale_frame.grid(row=1, column=2, padx=4, pady=4)
-
-        self.btn_delete = tk.Button(delete_and_scale_frame, text="🗑️ Delete",
-                                    command=self.delete_session, bg="#b71c1c", fg="white", width=13,
+        self.btn_delete = tk.Button(btn_frame, text="🗑️ Delete",
+                                    command=self.delete_session, bg="#b71c1c", fg="white", width=18,
                                     state=tk.DISABLED, font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white", disabledforeground="#ffcdd2")
-        self.btn_delete.pack(side=tk.LEFT, padx=(0, 4))
+        self.btn_delete.grid(row=1, column=2, padx=4, pady=4)
 
-        self.scale_var = tk.StringVar(value="Size: x1.0")
-        self.scale_cb = ttk.Combobox(delete_and_scale_frame, textvariable=self.scale_var, values=["Size: x1.0", "Size: x1.2", "Size: x1.4", "Size: x1.6"], state="readonly", font=("Arial", 8), width=9)
-        self.scale_cb.pack(side=tk.LEFT)
-        self.scale_cb.bind("<<ComboboxSelected>>", self.apply_scale)
-
-        # --- BỘ LỌC CẤU HÌNH (MÚI GIỜ) ---
-        filter_frame = tk.Frame(btn_frame, bg="#121212")
-        filter_frame.grid(row=2, column=0, columnspan=3, pady=(6, 0))
+        # --- BỘ LỌC CẤU HÌNH (MÚI GIỜ & KÍCH THƯỚC) ---
+        filter_frame = tk.Frame(root, bg="#121212")
+        filter_frame.pack(pady=(0, 6))
         
-        tk.Label(filter_frame, text="🌍 Chọn Múi giờ:", font=("Arial", 8, "bold"), fg="#e0e0e0", bg="#121212").pack(side=tk.LEFT, padx=4)
+        tk.Label(filter_frame, text="Chọn Múi giờ:", font=("Arial", 8, "bold"), fg="#e0e0e0", bg="#121212").pack(side=tk.LEFT, padx=2)
         
         self.tz_var = tk.StringVar(value="Toàn cầu")
         self.tz_map = {
@@ -165,11 +156,17 @@ class AntiDetectGUI:
             "Châu Phi": "Africa",
             "Châu Đại Dương": "Oceania"
         }
-        self.tz_cb = ttk.Combobox(filter_frame, textvariable=self.tz_var, values=list(self.tz_map.keys()), state="readonly", font=("Arial", 8), width=14)
-        self.tz_cb.pack(side=tk.LEFT, padx=(0, 10))
+        self.tz_cb = ttk.Combobox(filter_frame, textvariable=self.tz_var, values=list(self.tz_map.keys()), state="readonly", font=("Arial", 8), width=12)
+        self.tz_cb.pack(side=tk.LEFT, padx=(0, 5))
         
         self.btn_regen = tk.Button(filter_frame, text="🔄 Tổ hợp mới", command=self.regenerate_profiles, bg="#333333", fg="#00e676", font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#555555", activeforeground="#00e676")
-        self.btn_regen.pack(side=tk.LEFT)
+        self.btn_regen.pack(side=tk.LEFT, padx=(0, 10))
+
+        tk.Label(filter_frame, text="Giao diện:", font=("Arial", 8, "bold"), fg="#e0e0e0", bg="#121212").pack(side=tk.LEFT, padx=2)
+        self.scale_var = tk.StringVar(value="Size: x1.0")
+        self.scale_cb = ttk.Combobox(filter_frame, textvariable=self.scale_var, values=["Size: x1.0", "Size: x1.2", "Size: x1.4", "Size: x1.6"], state="readonly", font=("Arial", 8), width=9)
+        self.scale_cb.pack(side=tk.LEFT)
+        self.scale_cb.bind("<<ComboboxSelected>>", self.apply_scale)
         # ---------------------------------
 
         # --- Hiển thị đường dẫn dữ liệu ---
@@ -181,16 +178,11 @@ class AntiDetectGUI:
                  font=("Arial", 7, "italic"), fg="#a0a0a0", bg="#121212",
                  justify=tk.LEFT).pack(anchor='w', pady=(0, 2))
         
-        browser_path = self.get_playwright_browser_path()
-        self.path_entry = tk.Entry(info_frame, font=("Courier", 7), bg="#1e1e1e", fg="#00bcd4", readonlybackground="#1e1e1e", relief=tk.FLAT)
+        browser_path = self.get_playwright_browser_path(is_running=False)
+        self.path_entry = tk.Entry(info_frame, font=("Courier", 7), bg="#1e1e1e", fg="#d2b48c", readonlybackground="#1e1e1e", relief=tk.FLAT)
         self.path_entry.insert(0, browser_path)
         self.path_entry.config(state='readonly')
         self.path_entry.pack(fill=tk.X, expand=True, ipady=2)
-
-        tk.Label(info_frame, 
-                 text="*Đây là nơi trình duyệt lưu trữ dữ liệu phiên hoạt động (Cookie, Cache, Lịch sử) của thiết bị ảo.\n*Thư mục được sinh ngẫu nhiên mỗi lần mở và sẽ bị tự động tiêu hủy khi bạn bấm dọn dẹp.",
-                 font=("Arial", 7), fg="#4dd0e1", bg="#121212", justify=tk.LEFT).pack(anchor='w', pady=(2,0))
-        # --- Kết thúc ---
 
         # --- Container cho 2 khung (Thiết bị và Log) ---
         bottom_container = tk.Frame(root, bg="#121212")
@@ -326,7 +318,7 @@ class AntiDetectGUI:
             "#00ffff": "#00509e", "#e0e0e0": "#333333", "#b388ff": "#5e35b1",
             "#00e676": "#2e7d32", "#ffb74d": "#ef6c00", "#4dd0e1": "#00838f",
             "#f48fb1": "#ad1457", "#a0a0a0": "#666666", "#00bcd4": "#1565c0",
-            "#ff5252": "#d32f2f", "#ffff00": "#f57f17"
+            "#ff5252": "#d32f2f", "#ffff00": "#f57f17", "#d2b48c": "#8b4513"
         }
         if not to_light:
             bg_map = {v: k for k, v in bg_map.items()}
@@ -424,7 +416,7 @@ class AntiDetectGUI:
         creds = self.load_credentials()
         
         tk.Label(self.cred_dialog, text="Số điện thoại:", font=("Arial", 9), fg="#e0e0e0", bg="#121212").pack(pady=(15, 2))
-        phone_entry = tk.Entry(self.cred_dialog, font=("Arial", 10), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT)
+        phone_entry = tk.Entry(self.cred_dialog, font=("Arial", 10), bg="#1e1e1e", fg="#b388ff", insertbackground="#b388ff", relief=tk.FLAT)
         phone_entry.pack(pady=2, ipady=3, padx=20, fill=tk.X)
         phone_entry.insert(0, creds.get("phone", ""))
         
@@ -433,7 +425,7 @@ class AntiDetectGUI:
         pwd_frame = tk.Frame(self.cred_dialog, bg="#121212")
         pwd_frame.pack(pady=2, padx=20, fill=tk.X)
         
-        pwd_entry = tk.Entry(pwd_frame, font=("Arial", 10), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT, show="*")
+        pwd_entry = tk.Entry(pwd_frame, font=("Arial", 10), bg="#1e1e1e", fg="#b388ff", insertbackground="#b388ff", relief=tk.FLAT, show="*")
         pwd_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=3)
         pwd_entry.insert(0, creds.get("password", ""))
         
@@ -445,7 +437,7 @@ class AntiDetectGUI:
                 pwd_entry.config(show='')
                 btn_toggle_pwd.config(text="🙈")
                 
-        btn_toggle_pwd = tk.Button(pwd_frame, text="👁️", bg="#1e1e1e", fg="#00ffff", relief=tk.FLAT, font=("Arial", 10), width=3, command=toggle_pwd, activebackground="#333333", activeforeground="#00ffff")
+        btn_toggle_pwd = tk.Button(pwd_frame, text="👁️", bg="#1e1e1e", fg="#b388ff", relief=tk.FLAT, font=("Arial", 10), width=3, command=toggle_pwd, activebackground="#333333", activeforeground="#b388ff")
         btn_toggle_pwd.pack(side=tk.LEFT, padx=(5, 0), ipady=1)
         
         def save():
@@ -458,7 +450,7 @@ class AntiDetectGUI:
             self.cred_dialog.destroy()
             messagebox.showinfo("Thành công", "Đã lưu thông tin tài khoản!", parent=self.root)
             
-        tk.Button(self.cred_dialog, text="💾 Lưu và Đóng", command=save, bg="#00bcd4", fg="black", font=("Arial", 9, "bold"), relief=tk.FLAT, activebackground="#00e5ff").pack(pady=15, ipadx=20)
+        tk.Button(self.cred_dialog, text="💾 Lưu và Đóng", command=save, bg="#00e676", fg="black", font=("Arial", 9, "bold"), relief=tk.FLAT, activebackground="#2e7d32").pack(pady=15, ipadx=20)
         
         self._scale_widget_tree(self.cred_dialog, self.current_scale)
         self.apply_current_theme(self.cred_dialog)
@@ -622,12 +614,12 @@ class AntiDetectGUI:
         prog_win.attributes("-topmost", True) # Nổi lên trên cùng giống hộp thoại xóa
         prog_win.protocol("WM_DELETE_WINDOW", lambda: None)
         
-        tk.Label(prog_win, text="Đang khởi tạo cấu hình ẩn danh hoàn toàn mới...", font=("Arial", 8, "bold"), fg="#00ffff", bg="#121212").pack(pady=8)
+        tk.Label(prog_win, text="Đang khởi tạo cấu hình ẩn danh hoàn toàn mới...", font=("Arial", 8, "bold"), fg="#00e676", bg="#121212").pack(pady=8)
         
         progress = ttk.Progressbar(prog_win, orient=tk.HORIZONTAL, length=int(380*self.current_scale), mode='determinate')
         progress.pack(pady=4)
         
-        step_label = tk.Label(prog_win, text="Bắt đầu...", font=("Courier", 7), fg="#00bcd4", bg="#121212")
+        step_label = tk.Label(prog_win, text="Bắt đầu...", font=("Courier", 7), fg="#ffb74d", bg="#121212")
         step_label.pack(pady=4)
         
         self._scale_widget_tree(prog_win, self.current_scale)
@@ -686,6 +678,12 @@ class AntiDetectGUI:
             self.btn_proxy.config(state=tk.DISABLED)
             self.btn_delete.config(state=tk.DISABLED)
             self.status_label.config(text="Trạng thái: Hết thiết bị. Vui lòng tắt phần mềm và mở lại.", fg=self.get_color("#ff5252"))
+
+        if hasattr(self, 'path_entry'):
+            self.path_entry.config(state=tk.NORMAL)
+            self.path_entry.delete(0, tk.END)
+            self.path_entry.insert(0, self.get_playwright_browser_path(is_running=False))
+            self.path_entry.config(state='readonly')
 
     def update_device_info_display(self, profile, exhausted=False):
         """Cập nhật khung hiển thị thông tin thiết bị đã tạo."""
@@ -783,12 +781,18 @@ class AntiDetectGUI:
         # Nếu người dùng bấm X trên hộp thoại đếm ngược -> xem như Hủy
         dialog.protocol("WM_DELETE_WINDOW", cancel)
 
-    def get_playwright_browser_path(self):
+    def get_playwright_browser_path(self, is_running=False):
         """Lấy đường dẫn thư mục chứa dữ liệu cấu hình tạm thời của trình duyệt Playwright."""
         try:
+            if not is_running:
+                return "Đang chờ khởi chạy..."
             temp_dir = tempfile.gettempdir()
-            # Do mỗi lần chạy Playwright sinh ra 1 thư mục ngẫu nhiên, ta hiển thị định dạng mẫu
-            return os.path.join(temp_dir, "playwright_chromiumdev_profile-[Mã_Ngẫu_Nhiên]")
+            # Quét tìm thư mục Playwright mới nhất vừa được tạo
+            playwright_dirs = [os.path.join(temp_dir, d) for d in os.listdir(temp_dir) if d.startswith("playwright_")]
+            if playwright_dirs:
+                latest_dir = max(playwright_dirs, key=os.path.getmtime) # Lấy thư mục mới sinh ra nhất
+                return latest_dir
+            return "Không tìm thấy thư mục tạm thời."
         except Exception as e:
             print(f"Lỗi khi lấy đường dẫn: {e}")
             return "Không thể xác định đường dẫn."
@@ -848,6 +852,15 @@ class AntiDetectGUI:
             self.virtual_mac_label.config(text=f"MAC(Fake): {self.current_profile['mac_address']}")
 
         try:
+            def on_browser_created():
+                def update_path():
+                    if hasattr(self, 'path_entry'):
+                        self.path_entry.config(state=tk.NORMAL)
+                        self.path_entry.delete(0, tk.END)
+                        self.path_entry.insert(0, self.get_playwright_browser_path(is_running=True))
+                        self.path_entry.config(state='readonly')
+                self.root.after(0, update_path)
+
             # Callback này sẽ được gọi từ worker thread khi trình duyệt đã mở thành công
             def on_launch_success(device_profile):
                 def update_ui():
@@ -860,7 +873,8 @@ class AntiDetectGUI:
                 target_url=target_url, 
                 use_proxy=use_proxy,
                 on_launch_callback=on_launch_success,
-                device_profile=self.current_profile
+                device_profile=self.current_profile,
+                on_browser_created=on_browser_created
             )
         except Exception as e:
             print(f"Lỗi: {e}")
@@ -913,12 +927,12 @@ class AntiDetectGUI:
         prog_win.attributes("-topmost", True) # Ép hộp thoại nổi lên trên cùng (xuyên qua trình duyệt nếu có)
         prog_win.protocol("WM_DELETE_WINDOW", lambda: None) # Vô hiệu hóa nút X để tránh làm gián đoạn
 
-        tk.Label(prog_win, text="Đang tiêu hủy dấu vết, Cookie, Lịch sử...", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=10)
+        tk.Label(prog_win, text="Đang tiêu hủy dấu vết, Cookie, Lịch sử...", font=("Arial", 10, "bold"), fg="#ff5252", bg="#121212").pack(pady=10)
 
         progress = ttk.Progressbar(prog_win, orient=tk.HORIZONTAL, length=int(380*self.current_scale), mode='determinate')
         progress.pack(pady=5)
 
-        file_label = tk.Label(prog_win, text="Khởi tạo...", font=("Courier", 8), fg="#00bcd4", bg="#121212")
+        file_label = tk.Label(prog_win, text="Khởi tạo...", font=("Courier", 8), fg="#ffb74d", bg="#121212")
         file_label.pack(pady=5)
         
         self._scale_widget_tree(prog_win, self.current_scale)
