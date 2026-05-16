@@ -38,7 +38,7 @@ class AntiDetectGUI:
         self.current_scale = 0.8
         # Căn giữa cửa sổ phần mềm chính trên màn hình lúc mới bật
         window_w = int(400 * self.current_scale)
-        window_h = int(540 * self.current_scale)
+        window_h = int(660 * self.current_scale)
         screen_w = root.winfo_screenwidth()
         screen_h = root.winfo_screenheight()
 
@@ -77,6 +77,8 @@ class AntiDetectGUI:
         self.engine.set_network_callback(self.update_network_analysis)
         
         self.credentials_file = os.path.join(os.path.dirname(__file__), 'data', 'credentials.json')
+        self.keywords_file = os.path.join(os.path.dirname(__file__), 'data', 'keywords.json')
+        self.keywords = self.load_keywords()
         
         # Thiết kế các thành phần Giao diện (UI)
         tk.Label(root, text="Fix 24h upto", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=10)
@@ -201,13 +203,50 @@ class AntiDetectGUI:
         
         bottom_container.columnconfigure(0, weight=1)
         bottom_container.rowconfigure(0, weight=1)
+        bottom_container.rowconfigure(1, weight=1)
 
         # Cột 1: Hiển thị thông số cấu hình giả lập
         self.device_info_frame = tk.LabelFrame(bottom_container, text="Chi tiết trình duyệt vừa tạo:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
         self.device_info_frame.grid(row=0, column=0, sticky="nsew", padx=0)
         
-        self.device_info_text = tk.Text(self.device_info_frame, height=7, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
+        self.device_info_text = tk.Text(self.device_info_frame, height=4, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
         self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+
+        self.keyword_frame = tk.LabelFrame(bottom_container, text="Từ khóa tự động tìm kiếm Google:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
+        self.keyword_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=(4, 0))
+        
+        kw_top_frame = tk.Frame(self.keyword_frame, bg="#121212")
+        kw_top_frame.pack(fill=tk.X, padx=5, pady=(5, 2))
+        
+        self.kw_entry = tk.Entry(kw_top_frame, font=("Arial", 8), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT)
+        self.kw_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=2)
+        
+        self.btn_add_kw = tk.Button(kw_top_frame, text="Thêm", command=self.add_keyword, bg="#00bcd4", fg="black", font=("Arial", 7, "bold"), relief=tk.FLAT, activebackground="#00e5ff")
+        self.btn_add_kw.pack(side=tk.LEFT, padx=(5, 0))
+        
+        self.btn_update_kw = tk.Button(kw_top_frame, text="Sửa", command=self.update_keyword, bg="#ffb74d", fg="black", font=("Arial", 7, "bold"), relief=tk.FLAT, activebackground="#ff9800")
+        self.btn_update_kw.pack(side=tk.LEFT, padx=(5, 0))
+        
+        self.btn_delete_kw = tk.Button(kw_top_frame, text="Xóa", command=self.delete_keyword, bg="#ff5252", fg="white", font=("Arial", 7, "bold"), relief=tk.FLAT, activebackground="#f44336")
+        self.btn_delete_kw.pack(side=tk.LEFT, padx=(5, 0))
+        
+        list_container = tk.Frame(self.keyword_frame, bg="#1e1e1e")
+        list_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=(0, 5))
+        
+        self.kw_canvas = tk.Canvas(list_container, bg="#1e1e1e", highlightthickness=0, height=50)
+        self.kw_scrollbar = tk.Scrollbar(list_container, orient="vertical", command=self.kw_canvas.yview)
+        self.kw_list_inner_frame = tk.Frame(self.kw_canvas, bg="#1e1e1e")
+        
+        self.kw_canvas.configure(yscrollcommand=self.kw_scrollbar.set)
+        self.kw_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.kw_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        self.kw_canvas_window = self.kw_canvas.create_window((0, 0), window=self.kw_list_inner_frame, anchor="nw")
+        self.kw_list_inner_frame.bind("<Configure>", lambda e: self.kw_canvas.configure(scrollregion=self.kw_canvas.bbox("all")))
+        self.kw_canvas.bind("<Configure>", lambda e: self.kw_canvas.itemconfig(self.kw_canvas_window, width=e.width))
+        
+        self.selected_kw_idx = None
+        self.refresh_keyword_list()
 
         self.status_label = tk.Label(root, text="Trạng thái: Sẵn sàng", fg="#a0a0a0", bg="#121212", font=("Arial", 7))
         self.status_label.pack(side=tk.BOTTOM, pady=8)
@@ -251,7 +290,7 @@ class AntiDetectGUI:
         else: self.current_scale = 1.0
 
         new_w = int(400 * self.current_scale)
-        new_h = int(540 * self.current_scale)
+        new_h = int(660 * self.current_scale)
         self.root.geometry(f"{new_w}x{new_h}")
 
         # Tính toán lại tọa độ cho các thành phần neo cố định (Ghim, Theme, Đồng hồ)
@@ -368,6 +407,94 @@ class AntiDetectGUI:
                 json.dump({"phone": phone, "password": password}, f)
         except Exception as e:
             print(f"Lỗi lưu tài khoản: {e}")
+
+    def load_keywords(self):
+        try:
+            if os.path.exists(self.keywords_file):
+                with open(self.keywords_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return ["moneytask.top"]
+        
+    def save_keywords(self):
+        try:
+            os.makedirs(os.path.dirname(self.keywords_file), exist_ok=True)
+            with open(self.keywords_file, 'w', encoding='utf-8') as f:
+                json.dump(self.keywords, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            print(f"Lỗi lưu từ khóa: {e}")
+
+    def refresh_keyword_list(self):
+        for widget in self.kw_list_inner_frame.winfo_children():
+            widget.destroy()
+            
+        for idx, kw in enumerate(self.keywords):
+            row = tk.Frame(self.kw_list_inner_frame, bg="#1e1e1e")
+            row.pack(fill=tk.X, pady=1)
+            
+            lbl = tk.Label(row, text=kw, font=("Arial", 8), bg="#1e1e1e", fg="#00ffff", anchor="w", cursor="hand2")
+            lbl.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+            lbl.bind("<Button-1>", lambda e, k=kw, i=idx: self.on_keyword_select(k, i))
+            row.bind("<Button-1>", lambda e, k=kw, i=idx: self.on_keyword_select(k, i))
+            
+            btn_type = tk.Button(row, text="Nhập", font=("Arial", 7, "bold"), bg="#81c784", fg="black", relief=tk.FLAT, activebackground="#a5d6a7", command=lambda k=kw: self.trigger_type_keyword(k))
+            btn_type.pack(side=tk.RIGHT, padx=2)
+            
+        if hasattr(self, 'current_scale') and self.current_scale != 1.0:
+            self._scale_widget_tree(self.kw_list_inner_frame, self.current_scale)
+        if hasattr(self, 'apply_current_theme'):
+            self.apply_current_theme(self.kw_list_inner_frame)
+            
+    def add_keyword(self):
+        kw = self.kw_entry.get().strip()
+        if kw and kw not in self.keywords:
+            self.keywords.append(kw)
+            self.save_keywords()
+            self.refresh_keyword_list()
+            self.kw_entry.delete(0, tk.END)
+
+    def update_keyword(self):
+        if getattr(self, 'selected_kw_idx', None) is None: return
+        idx = self.selected_kw_idx
+        if idx >= len(self.keywords): return
+        new_kw = self.kw_entry.get().strip()
+        if new_kw:
+            self.keywords[idx] = new_kw
+            self.save_keywords()
+            self.refresh_keyword_list()
+            self.on_keyword_select(new_kw, idx)
+
+    def delete_keyword(self):
+        if getattr(self, 'selected_kw_idx', None) is None: return
+        idx = self.selected_kw_idx
+        if idx >= len(self.keywords): return
+        del self.keywords[idx]
+        self.selected_kw_idx = None
+        self.save_keywords()
+        self.refresh_keyword_list()
+        self.kw_entry.delete(0, tk.END)
+
+    def on_keyword_select(self, kw, idx):
+        self.selected_kw_idx = idx
+        self.kw_entry.delete(0, tk.END)
+        self.kw_entry.insert(0, kw)
+        
+        for i, widget in enumerate(self.kw_list_inner_frame.winfo_children()):
+            lbl = widget.winfo_children()[0]
+            if i == idx:
+                widget.config(bg="#333333")
+                lbl.config(bg="#333333")
+            else:
+                widget.config(bg="#1e1e1e")
+                lbl.config(bg="#1e1e1e")
+                
+    def trigger_type_keyword(self, keyword):
+        if self.engine.playwright is not None:
+            self.engine.target_typing_keyword = keyword
+            self.engine._pending_action = "type_keyword"
+            self.status_label.config(text=f"Trạng thái: Đang gõ từ khóa '{keyword}'...", fg=self.get_color("#b388ff"))
+            self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Delete' để dọn dẹp.", fg=self.get_color("#00bcd4")))
 
     def show_credentials_dialog(self, event=None):
         if hasattr(self, 'cred_dialog') and self.cred_dialog.winfo_exists():
@@ -967,7 +1094,8 @@ class AntiDetectGUI:
                 on_launch_callback=on_launch_success,
                 device_profile=self.current_profile,
                 on_browser_created=on_browser_created,
-                headless=headless
+                headless=headless,
+                search_keywords=self.keywords
             )
         except Exception as e:
             print(f"Lỗi: {e}")

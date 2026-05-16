@@ -46,7 +46,7 @@ class BrowserEngine:
         with open(proxy_path, 'r') as f:
             return [line.strip() for line in f if line.strip()]
 
-    def run_session_and_wait(self, target_url, use_proxy, on_launch_callback, device_profile=None, on_browser_created=None, headless=False):
+    def run_session_and_wait(self, target_url, use_proxy, on_launch_callback, device_profile=None, on_browser_created=None, headless=False, search_keywords=None):
         """
         Khởi chạy session, gọi callback, và block cho đến khi trình duyệt bị đóng.
         Việc dọn dẹp được thực hiện tự động khi thoát khỏi khối 'with'.
@@ -321,9 +321,11 @@ class BrowserEngine:
                         page.wait_for_timeout(random.randint(165, 500))
                         
                         # Sử dụng hàm type thay vì fill để gõ từng chữ cái với khoảng trễ delay (như người gõ phím)
-                        print("[*] Đang gõ từ khóa: moneytask.top")
-                        page.type(search_selector, "moneytask.top", delay=random.randint(50, 130))
-                        self.auto_action_count += 13 # 13 kí tự
+                        target_keyword = "moneytask.top"
+                        
+                        print(f"[*] Đang gõ từ khóa: {target_keyword}")
+                        page.type(search_selector, target_keyword, delay=random.randint(25, 65))
+                        self.auto_action_count += len(target_keyword)
                         
                         page.wait_for_timeout(random.randint(265, 500))
                         
@@ -481,6 +483,36 @@ class BrowserEngine:
                                     self.auto_action_count += 1
                                 except Exception as ex:
                                     print(f"[!] Lỗi khi tự động chuyển trang nhiệm vụ: {ex}")
+                                    
+                            elif getattr(self, '_pending_action', None) == "type_keyword":
+                                self._pending_action = None
+                                keyword_to_type = getattr(self, 'target_typing_keyword', '')
+                                if keyword_to_type:
+                                    try:
+                                        active_page = self.context.pages[-1]
+                                        print(f"[*] Đang thực thi lệnh gõ từ khóa: '{keyword_to_type}'...")
+                                        
+                                        search_selector = "textarea[name='q'], input[name='q']"
+                                        
+                                        if active_page.locator(search_selector).count() > 0:
+                                            # Click xóa văn bản cũ
+                                            active_page.click(search_selector, timeout=3000)
+                                            active_page.wait_for_timeout(random.randint(100, 200))
+                                            active_page.fill(search_selector, "")
+                                            active_page.wait_for_timeout(random.randint(100, 200))
+                                            
+                                            # Tốc độ x2 so với đánh tay (từ 50-130ms xuống còn 25-65ms)
+                                            active_page.type(search_selector, keyword_to_type, delay=random.randint(25, 65))
+                                            self.auto_action_count += len(keyword_to_type)
+                                            
+                                            active_page.wait_for_timeout(random.randint(200, 400))
+                                            active_page.press(search_selector, "Enter")
+                                            self.auto_action_count += 1
+                                            print("[*] Đã gõ xong từ khóa và nhấn Enter!")
+                                        else:
+                                            print("[-] Không tìm thấy ô tìm kiếm Google trên trang hiện tại. Hãy mở Google trước.")
+                                    except Exception as ex:
+                                        print(f"[!] Lỗi khi gõ từ khóa: {ex}")
                                     
                             elif getattr(self, '_pending_action', None) == "fill_login":
                                 self._pending_action = None
