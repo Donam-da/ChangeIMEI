@@ -81,35 +81,49 @@ class AntiDetectGUI:
         self.keywords = self.load_keywords()
         
         # Thiết kế các thành phần Giao diện (UI)
-        tk.Label(root, text="Fix 24h upto", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=10)
+        tk.Label(root, text="Fix 24h upto", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=(10, 5))
         
         self.is_pinned = False
         self.btn_pin = tk.Button(root, text="📌 Ghim", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_pin, activebackground="#333333", activeforeground="#00e676")
-        self.btn_pin.place(relx=1.0, x=-120, y=15, width=100)
+        self.btn_pin.place(relx=1.0, x=-120, y=30, width=100)
 
         self.is_dark_mode = True
         self.btn_theme = tk.Button(root, text="🌙 Dark", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_theme, activebackground="#333333", activeforeground="#00ffff")
-        self.btn_theme.place(relx=1.0, x=-200, y=15, width=75)
+        self.btn_theme.place(relx=1.0, x=-200, y=30, width=75)
 
         self.clock_label = tk.Label(root, font=("Courier", 8, "bold"), bg="#1e1e1e", fg="#00e676", relief=tk.FLAT)
-        self.clock_label.place(x=15, y=15, width=160, height=22)
+        self.clock_label.place(x=15, y=30, width=160, height=22)
         self.update_clock()
 
         # Bảng thông tin mạng (Dùng lưới Grid để căn chỉnh Icon và Chữ luôn thẳng hàng)
         net_frame = tk.Frame(root, bg="#121212")
-        net_frame.pack(pady=(0, 8))
+        net_frame.pack(pady=(25, 8))
 
-        self.ip_label = tk.Label(net_frame, text="🌐 IP: Đang kiểm...", font=("Arial", 8, "bold"), fg="#00e676", bg="#121212")
-        self.ip_label.grid(row=0, column=0, rowspan=2, padx=6)
+        ip_frame = tk.Frame(net_frame, bg="#121212")
+        ip_frame.grid(row=0, column=0, rowspan=2, padx=(16, 6))
+        
+        self.is_ip_hidden = False
+        self.current_ip_str = "Đang kiểm..."
+        self.current_ip_err = False
+        
+        self.btn_toggle_ip = tk.Button(ip_frame, text="👁️", bg="#121212", fg="#a0a0a0", relief=tk.FLAT, font=("Arial", 8), command=self.toggle_ip_visibility, activebackground="#333333", activeforeground="#a0a0a0", bd=0, padx=2, pady=0)
+        self.btn_toggle_ip = tk.Button(ip_frame, text="👁️", bg="#121212", fg="#a0a0a0", relief=tk.FLAT, font=("Arial", 8), command=self.toggle_ip_visibility, activebackground="#333333", activeforeground="#a0a0a0", bd=0, padx=2, pady=0, width=2)
+        self.btn_toggle_ip.pack(side=tk.LEFT)
+        self.ip_label = tk.Label(ip_frame, text="IP: Đang kiểm...", font=("Arial", 8, "bold"), fg="#00e676", bg="#121212")
+        self.ip_label = tk.Label(ip_frame, text="IP: Đang kiểm...", font=("Arial", 8, "bold"), fg="#00e676", bg="#121212", width=18, anchor="w")
+        self.ip_label.pack(side=tk.LEFT)
 
         self.ping_label = tk.Label(net_frame, text="⚡ Ping: ...", font=("Arial", 8, "bold"), fg="#ffb74d", bg="#121212")
+        self.ping_label = tk.Label(net_frame, text="⚡ Ping: ...", font=("Arial", 8, "bold"), fg="#ffb74d", bg="#121212", width=14, anchor="w")
         self.ping_label.grid(row=0, column=1, rowspan=2, padx=6)
 
         self.disconnect_count = 0
         self.disconnect_label = tk.Label(net_frame, text="❌ Rớt: 0", font=("Arial", 8, "bold"), fg="#ff5252", bg="#121212")
+        self.disconnect_label = tk.Label(net_frame, text="❌ Rớt: 0", font=("Arial", 8, "bold"), fg="#ff5252", bg="#121212", width=10, anchor="w")
         self.disconnect_label.grid(row=0, column=2, padx=6, sticky="w")
         
         self.last_disconnect_label = tk.Label(net_frame, text="⏱️ Lúc: N/A", font=("Arial", 7, "italic"), fg="#a0a0a0", bg="#121212")
+        self.last_disconnect_label = tk.Label(net_frame, text="⏱️ Lúc: N/A", font=("Arial", 7, "italic"), fg="#a0a0a0", bg="#121212", width=15, anchor="w")
         self.last_disconnect_label.grid(row=1, column=2, padx=6, sticky="w")
 
         self.analysis_label = tk.Label(root, text="🔍 Phân tích web: Đang chờ thao tác...", font=("Arial", 8, "bold"), fg="#ffff00", bg="#121212")
@@ -137,31 +151,31 @@ class AntiDetectGUI:
         btn_style = {"font": ("Arial", 8, "bold"), "relief": tk.FLAT, "activebackground": "#00e5ff", "activeforeground": "black"}
 
         self.btn_ip_that = tk.Button(btn_frame, text="Mở Trình Duyệt", 
-                                     command=self.launch_ip_that, bg="#00bcd4", fg="black", width=13, **btn_style)
+                                     command=self.launch_ip_that, bg="#00bcd4", fg="black", width=15, **btn_style)
         self.btn_ip_that.grid(row=0, column=1, padx=2, pady=4)
         
         self.btn_proxy = tk.Button(btn_frame, text="Proxy nếu có", 
-                                   command=self.launch_proxy, bg="#a52a2a", fg="white", width=13, **btn_style)
+                                   command=self.launch_proxy, bg="#a52a2a", fg="white", width=15, **btn_style)
         self.btn_proxy.grid(row=0, column=0, padx=2, pady=4)
 
         self.btn_auto_login = tk.Button(btn_frame, text="🔑 Auto Login", 
-                                        command=self.trigger_auto_login, bg="#81c784", fg="black", width=13,
+                                        command=self.trigger_auto_login, bg="#81c784", fg="black", width=15,
                                         state=tk.DISABLED, **btn_style)
         self.btn_auto_login.grid(row=0, column=2, padx=2, pady=4)
         self.btn_auto_login.bind("<Double-1>", self.show_credentials_dialog)
 
-        self.btn_auto_task_step = tk.Button(btn_frame, text="Upto step", 
-                                        command=self.trigger_auto_task_step, bg="#263238", fg="#00bcd4", width=13,
+        self.btn_auto_task_step = tk.Button(btn_frame, text="Upto step (chưa có)", 
+                                        command=self.trigger_auto_task_step, bg="#263238", fg="#00bcd4", width=15,
                                         state=tk.DISABLED, **btn_style)
         self.btn_auto_task_step.grid(row=1, column=0, padx=2, pady=4)
 
-        self.btn_auto_task = tk.Button(btn_frame, text="Lấy mã auto", 
-                                        command=self.trigger_auto_task, bg="#263238", fg="#00bcd4", width=13,
+        self.btn_auto_task = tk.Button(btn_frame, text="Lấy mã (chưa có)", 
+                                        command=self.trigger_auto_task, bg="#263238", fg="#00bcd4", width=15,
                                         state=tk.DISABLED, **btn_style)
         self.btn_auto_task.grid(row=1, column=1, padx=2, pady=4)
 
         self.btn_delete = tk.Button(btn_frame, text="🗑️ Delete",
-                                    command=self.delete_session, bg="#b71c1c", fg="white", width=13,
+                                    command=self.delete_session, bg="#b71c1c", fg="white", width=15,
                                     state=tk.DISABLED, font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white", disabledforeground="#ffcdd2")
         self.btn_delete.grid(row=1, column=2, padx=2, pady=4)
 
@@ -187,7 +201,7 @@ class AntiDetectGUI:
         info_frame.pack(pady=(4, 0), fill=tk.X, padx=15)
 
         tk.Label(info_frame, 
-                 text="Nơi lưu trữ trình duyệt (máy ảo):", 
+                 text="Nơi lưu trữ trình duyệt:", 
                  font=("Arial", 7, "italic"), fg="#a0a0a0", bg="#121212",
                  justify=tk.LEFT).pack(anchor='w', pady=(0, 2))
         
@@ -218,8 +232,15 @@ class AntiDetectGUI:
         kw_top_frame = tk.Frame(self.keyword_frame, bg="#121212")
         kw_top_frame.pack(fill=tk.X, padx=5, pady=(5, 2))
         
-        self.kw_entry = tk.Entry(kw_top_frame, font=("Arial", 8), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT)
+        self.placeholder_text = "nhập text vào đây"
+        self.kw_entry = tk.Entry(kw_top_frame, font=("Arial", 8), bg="#1e1e1e", fg="#ffffff", insertbackground="#ffffff", relief=tk.FLAT)
         self.kw_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=2)
+        
+        self.kw_entry.insert(0, self.placeholder_text)
+        self.kw_entry.config(fg="#a0a0a0")
+        
+        self.kw_entry.bind("<FocusIn>", self.clear_placeholder)
+        self.kw_entry.bind("<FocusOut>", self.add_placeholder)
         
         self.btn_add_kw = tk.Button(kw_top_frame, text="Thêm", command=self.add_keyword, bg="#00bcd4", fg="black", font=("Arial", 7, "bold"), relief=tk.FLAT, activebackground="#00e5ff")
         self.btn_add_kw.pack(side=tk.LEFT, padx=(5, 0))
@@ -270,9 +291,19 @@ class AntiDetectGUI:
         # Cập nhật cỡ chữ và giao diện theo scale hiện tại ngay khi phần mềm khởi động xong
         self.root.after(50, self.apply_scale)
 
+    def clear_placeholder(self, event=None):
+        if self.kw_entry.get() == self.placeholder_text:
+            self.kw_entry.delete(0, tk.END)
+            self.kw_entry.config(fg=self.get_color("#ffffff"))
+
+    def add_placeholder(self, event=None):
+        if not self.kw_entry.get():
+            self.kw_entry.insert(0, self.placeholder_text)
+            self.kw_entry.config(fg=self.get_color("#a0a0a0"))
+
     def update_network_analysis(self, cookie_count, auto_cmds=0, server_health=100.0):
         def _update():
-            self.analysis_label.config(text=f"🔍 Phân tích web: Cookies: {cookie_count} | ⚙️ Lệnh Auto: {auto_cmds} | 🚦 Server: {server_health:.2f}%", fg=self.get_color("#ffff00"))
+            self.analysis_label.config(text=f"🔍 Phân tích web: Cookies: {cookie_count} | 🚦 Server: {server_health:.2f}%", fg=self.get_color("#ffff00"))
         self.root.after(0, _update)
 
     def update_clock(self):
@@ -294,9 +325,9 @@ class AntiDetectGUI:
         self.root.geometry(f"{new_w}x{new_h}")
 
         # Tính toán lại tọa độ cho các thành phần neo cố định (Ghim, Theme, Đồng hồ)
-        self.btn_pin.place(relx=1.0, x=int(-120 * self.current_scale), y=int(15 * self.current_scale), width=int(100 * self.current_scale))
-        self.btn_theme.place(relx=1.0, x=int(-200 * self.current_scale), y=int(15 * self.current_scale), width=int(75 * self.current_scale))
-        self.clock_label.place(x=int(15 * self.current_scale), y=int(15 * self.current_scale), width=int(160 * self.current_scale), height=int(22 * self.current_scale))
+        self.btn_pin.place(relx=1.0, x=int(-120 * self.current_scale), y=int(30 * self.current_scale), width=int(100 * self.current_scale))
+        self.btn_theme.place(relx=1.0, x=int(-200 * self.current_scale), y=int(30 * self.current_scale), width=int(75 * self.current_scale))
+        self.clock_label.place(x=int(15 * self.current_scale), y=int(30 * self.current_scale), width=int(160 * self.current_scale), height=int(22 * self.current_scale))
 
         self._scale_widget_tree(self.root, self.current_scale)
 
@@ -339,7 +370,8 @@ class AntiDetectGUI:
             "#00ffff": "#00509e", "#e0e0e0": "#333333", "#b388ff": "#5e35b1",
             "#00e676": "#2e7d32", "#ffb74d": "#ef6c00", "#4dd0e1": "#00838f",
             "#f48fb1": "#ad1457", "#a0a0a0": "#666666", "#00bcd4": "#1565c0",
-            "#ff5252": "#d32f2f", "#ffff00": "#f57f17", "#d2b48c": "#8b4513"
+            "#ff5252": "#d32f2f", "#ffff00": "#f57f17", "#d2b48c": "#8b4513",
+            "#ffffff": "#000000"
         }
         if not to_light:
             bg_map = {v: k for k, v in bg_map.items()}
@@ -433,7 +465,7 @@ class AntiDetectGUI:
             row = tk.Frame(self.kw_list_inner_frame, bg="#1e1e1e")
             row.pack(fill=tk.X, pady=1)
             
-            lbl = tk.Label(row, text=kw, font=("Arial", 8), bg="#1e1e1e", fg="#00ffff", anchor="w", cursor="hand2")
+            lbl = tk.Label(row, text=kw, font=("Arial", 8), bg="#1e1e1e", fg="#00e676", anchor="w", cursor="hand2")
             lbl.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
             lbl.bind("<Button-1>", lambda e, k=kw, i=idx: self.on_keyword_select(k, i))
             row.bind("<Button-1>", lambda e, k=kw, i=idx: self.on_keyword_select(k, i))
@@ -448,18 +480,20 @@ class AntiDetectGUI:
             
     def add_keyword(self):
         kw = self.kw_entry.get().strip()
-        if kw and kw not in self.keywords:
+        if kw and kw != self.placeholder_text and kw not in self.keywords:
             self.keywords.append(kw)
             self.save_keywords()
             self.refresh_keyword_list()
             self.kw_entry.delete(0, tk.END)
+            self.root.focus()
+            self.add_placeholder()
 
     def update_keyword(self):
         if getattr(self, 'selected_kw_idx', None) is None: return
         idx = self.selected_kw_idx
         if idx >= len(self.keywords): return
         new_kw = self.kw_entry.get().strip()
-        if new_kw:
+        if new_kw and new_kw != self.placeholder_text:
             self.keywords[idx] = new_kw
             self.save_keywords()
             self.refresh_keyword_list()
@@ -474,10 +508,13 @@ class AntiDetectGUI:
         self.save_keywords()
         self.refresh_keyword_list()
         self.kw_entry.delete(0, tk.END)
+        self.root.focus()
+        self.add_placeholder()
 
     def on_keyword_select(self, kw, idx):
         self.selected_kw_idx = idx
         self.kw_entry.delete(0, tk.END)
+        self.kw_entry.config(fg=self.get_color("#ffffff"))
         self.kw_entry.insert(0, kw)
         
         for i, widget in enumerate(self.kw_list_inner_frame.winfo_children()):
@@ -574,9 +611,11 @@ class AntiDetectGUI:
             was_unstable = False
             
             def update_ui(i, l, err=False, disc_time=None):
-                c_ip = "#ff5252" if err else "#00e676"
+                self.current_ip_str = i
+                self.current_ip_err = err
+                self._update_ip_display()
+                
                 c_ping = "#ff5252" if err else "#ffb74d"
-                self.ip_label.config(text=f"🌐 IP: {i}", fg=self.get_color(c_ip))
                 self.ping_label.config(text=f"⚡ Ping: {l}", fg=self.get_color(c_ping))
                 self.disconnect_label.config(text=f"❌ Rớt: {self.disconnect_count}")
                 if disc_time:
@@ -694,6 +733,27 @@ class AntiDetectGUI:
         self.unstable_popup.deiconify()
         
         self.root.after(5000, lambda: self.unstable_popup.destroy() if self.unstable_popup.winfo_exists() else None)
+
+    def toggle_ip_visibility(self):
+        """Hiện/ẩn thông tin IP"""
+        self.is_ip_hidden = not getattr(self, 'is_ip_hidden', False)
+        if self.is_ip_hidden:
+            self.btn_toggle_ip.config(text="🙈")
+        else:
+            self.btn_toggle_ip.config(text="👁️")
+        self._update_ip_display()
+
+    def _update_ip_display(self):
+        ip_val = getattr(self, 'current_ip_str', "Đang kiểm...")
+        is_err = getattr(self, 'current_ip_err', False)
+        c_ip = "#ff5252" if is_err else "#00e676"
+        
+        if getattr(self, 'is_ip_hidden', False) and ip_val not in ["Đang kiểm...", "Mất kết nối"]:
+            display_ip = "***.***.***.***" if "." in ip_val else "***:***:***:***" if ":" in ip_val else "***"
+        else:
+            display_ip = ip_val
+            
+        self.ip_label.config(text=f"IP: {display_ip}", fg=self.get_color(c_ip))
 
     def toggle_url_visibility(self):
         """Hiện/ẩn nội dung ô nhập URL"""
