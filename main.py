@@ -110,23 +110,18 @@ class AntiDetectGUI:
         self.current_ip_str = "Đang kiểm..."
         self.current_ip_err = False
         
-        self.btn_toggle_ip = tk.Button(ip_frame, text="👁️", bg="#121212", fg="#a0a0a0", relief=tk.FLAT, font=("Arial", 8), command=self.toggle_ip_visibility, activebackground="#333333", activeforeground="#a0a0a0", bd=0, padx=2, pady=0)
         self.btn_toggle_ip = tk.Button(ip_frame, text="👁️", bg="#121212", fg="#a0a0a0", relief=tk.FLAT, font=("Arial", 8), command=self.toggle_ip_visibility, activebackground="#333333", activeforeground="#a0a0a0", bd=0, padx=2, pady=0, width=2)
         self.btn_toggle_ip.pack(side=tk.LEFT)
-        self.ip_label = tk.Label(ip_frame, text="IP: Đang kiểm...", font=("Arial", 8, "bold"), fg="#00e676", bg="#121212")
         self.ip_label = tk.Label(ip_frame, text="IP: Đang kiểm...", font=("Arial", 8, "bold"), fg="#00e676", bg="#121212", width=18, anchor="w")
         self.ip_label.pack(side=tk.LEFT)
 
-        self.ping_label = tk.Label(net_frame, text="⚡ Ping: ...", font=("Arial", 8, "bold"), fg="#ffb74d", bg="#121212")
         self.ping_label = tk.Label(net_frame, text="⚡ Ping: ...", font=("Arial", 8, "bold"), fg="#ffb74d", bg="#121212", width=14, anchor="w")
         self.ping_label.grid(row=0, column=1, rowspan=2, padx=6)
 
         self.disconnect_count = 0
-        self.disconnect_label = tk.Label(net_frame, text="❌ Rớt: 0", font=("Arial", 8, "bold"), fg="#ff5252", bg="#121212")
         self.disconnect_label = tk.Label(net_frame, text="❌ Rớt: 0", font=("Arial", 8, "bold"), fg="#ff5252", bg="#121212", width=10, anchor="w")
         self.disconnect_label.grid(row=0, column=2, padx=6, sticky="w")
         
-        self.last_disconnect_label = tk.Label(net_frame, text="⏱️ Lúc: N/A", font=("Arial", 7, "italic"), fg="#a0a0a0", bg="#121212")
         self.last_disconnect_label = tk.Label(net_frame, text="⏱️ Lúc: N/A", font=("Arial", 7, "italic"), fg="#a0a0a0", bg="#121212", width=15, anchor="w")
         self.last_disconnect_label.grid(row=1, column=2, padx=6, sticky="w")
 
@@ -253,15 +248,15 @@ class AntiDetectGUI:
         bottom_container.pack(pady=(8, 0), fill=tk.BOTH, expand=True, padx=15)
         
         bottom_container.columnconfigure(0, weight=1)
-        bottom_container.rowconfigure(0, weight=1)
+        bottom_container.rowconfigure(0, weight=0)
         bottom_container.rowconfigure(1, weight=1)
 
         # Cột 1: Hiển thị thông số cấu hình giả lập
         self.device_info_frame = tk.LabelFrame(bottom_container, text="Chi tiết trình duyệt vừa tạo:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
         self.device_info_frame.grid(row=0, column=0, sticky="nsew", padx=0)
         
-        self.device_info_text = tk.Text(self.device_info_frame, height=4, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
-        self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+        self.device_info_text = tk.Text(self.device_info_frame, height=3, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
+        self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=3)
 
         self.keyword_frame = tk.LabelFrame(bottom_container, text="Từ khóa tự động tìm kiếm Google:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
         self.keyword_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=(4, 0))
@@ -302,6 +297,14 @@ class AntiDetectGUI:
         self.kw_canvas_window = self.kw_canvas.create_window((0, 0), window=self.kw_list_inner_frame, anchor="nw")
         self.kw_list_inner_frame.bind("<Configure>", lambda e: self.kw_canvas.configure(scrollregion=self.kw_canvas.bbox("all")))
         self.kw_canvas.bind("<Configure>", lambda e: self.kw_canvas.itemconfig(self.kw_canvas_window, width=e.width))
+        
+        # Lắng nghe sự kiện cuộn chuột trên Canvas và Frame chứa
+        self.kw_canvas.bind("<MouseWheel>", self._on_mousewheel)
+        self.kw_canvas.bind("<Button-4>", self._on_mousewheel)
+        self.kw_canvas.bind("<Button-5>", self._on_mousewheel)
+        self.kw_list_inner_frame.bind("<MouseWheel>", self._on_mousewheel)
+        self.kw_list_inner_frame.bind("<Button-4>", self._on_mousewheel)
+        self.kw_list_inner_frame.bind("<Button-5>", self._on_mousewheel)
         
         self.selected_kw_idx = None
         self.refresh_keyword_list()
@@ -368,6 +371,15 @@ class AntiDetectGUI:
         self.clock_label.place(x=int(15 * self.current_scale), y=int(30 * self.current_scale), width=int(160 * self.current_scale), height=int(22 * self.current_scale))
 
         self._scale_widget_tree(self.root, self.current_scale)
+
+    def _on_mousewheel(self, event):
+        """Hàm xử lý cuộn chuột cho danh sách từ khóa"""
+        try:
+            if getattr(event, 'num', None) == 5 or event.delta < 0:
+                self.kw_canvas.yview_scroll(1, "units")
+            elif getattr(event, 'num', None) == 4 or event.delta > 0:
+                self.kw_canvas.yview_scroll(-1, "units")
+        except Exception: pass
 
     def _scale_widget_tree(self, widget, f):
         """Đệ quy quét toàn bộ giao diện và cập nhật kích thước Font chữ"""
@@ -510,6 +522,12 @@ class AntiDetectGUI:
             
             btn_type = tk.Button(row, text="Nhập", font=("Arial", 7, "bold"), bg="#81c784", fg="black", relief=tk.FLAT, activebackground="#a5d6a7", command=lambda k=kw: self.trigger_type_keyword(k))
             btn_type.pack(side=tk.RIGHT, padx=2)
+            
+            # Kế thừa sự kiện cuộn chuột cho từng nút, nhãn trong danh sách (Tránh bị chặn khi trỏ trúng chữ)
+            for w in (row, lbl, btn_type):
+                w.bind("<MouseWheel>", self._on_mousewheel)
+                w.bind("<Button-4>", self._on_mousewheel)
+                w.bind("<Button-5>", self._on_mousewheel)
             
         if hasattr(self, 'current_scale') and self.current_scale != 1.0:
             self._scale_widget_tree(self.kw_list_inner_frame, self.current_scale)
