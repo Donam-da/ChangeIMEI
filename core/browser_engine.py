@@ -324,7 +324,7 @@ class BrowserEngine:
                         target_keyword = "moneytask.top"
                         
                         print(f"[*] Đang gõ từ khóa: {target_keyword}")
-                        page.type(search_selector, target_keyword, delay=random.randint(25, 65))
+                        page.type(search_selector, target_keyword, delay=random.randint(12, 32))
                         self.auto_action_count += len(target_keyword)
                         
                         page.wait_for_timeout(random.randint(265, 500))
@@ -461,6 +461,47 @@ class BrowserEngine:
                             except Exception: pass
                             # -----------------------------------------------------------
 
+                            # --- Ưu tiên kiểm tra lệnh gõ từ khóa độc lập ---
+                            keyword_to_type = getattr(self, '_keyword_to_type', None)
+                            if keyword_to_type:
+                                self._keyword_to_type = None
+                                try:
+                                    print(f"\n[*] Đang thực thi lệnh gõ từ khóa: '{keyword_to_type}'...")
+                                    search_selector = "textarea[name='q'], input[name='q']"
+                                    
+                                    # Chỉ tìm ô tìm kiếm trên tab đang được hiển thị (tránh tự nhảy tab)
+                                    target_page = None
+                                    for p in reversed(self.context.pages):
+                                        try:
+                                            if p.evaluate("document.visibilityState === 'visible'"):
+                                                target_page = p
+                                                break
+                                        except Exception: pass
+                                        
+                                    if not target_page and self.context.pages:
+                                        target_page = self.context.pages[-1]
+                                        
+                                    if target_page and target_page.locator(search_selector).count() > 0:
+                                        # Click xóa văn bản cũ
+                                        target_page.click(search_selector, timeout=3000)
+                                        target_page.wait_for_timeout(random.randint(100, 200))
+                                        target_page.fill(search_selector, "")
+                                        target_page.wait_for_timeout(random.randint(100, 200))
+                                        
+                                        # Tốc độ x4 so với đánh tay (từ 50-130ms xuống còn 12-32ms)
+                                        target_page.type(search_selector, keyword_to_type, delay=random.randint(12, 32))
+                                        self.auto_action_count += len(keyword_to_type)
+                                        
+                                        target_page.wait_for_timeout(random.randint(200, 400))
+                                        target_page.press(search_selector, "Enter")
+                                        self.auto_action_count += 1
+                                        print("[*] Đã gõ xong từ khóa và nhấn Enter!\n")
+                                    else:
+                                        print("[-] Tab hiện tại không chứa ô tìm kiếm Google. Hãy chuyển sang đúng tab Google trước.\n")
+                                except Exception as ex:
+                                    print(f"[!] Lỗi khi gõ từ khóa: {ex}\n")
+                                continue # Bỏ qua các lệnh auto phía dưới để ưu tiên gõ xong từ khóa
+
                             # Kiểm tra xem có lệnh từ giao diện gửi xuống không
                             if getattr(self, '_pending_action', None) == "wait_and_go_login":
                                 self._pending_action = None
@@ -483,36 +524,6 @@ class BrowserEngine:
                                     self.auto_action_count += 1
                                 except Exception as ex:
                                     print(f"[!] Lỗi khi tự động chuyển trang nhiệm vụ: {ex}")
-                                    
-                            elif getattr(self, '_pending_action', None) == "type_keyword":
-                                self._pending_action = None
-                                keyword_to_type = getattr(self, 'target_typing_keyword', '')
-                                if keyword_to_type:
-                                    try:
-                                        active_page = self.context.pages[-1]
-                                        print(f"[*] Đang thực thi lệnh gõ từ khóa: '{keyword_to_type}'...")
-                                        
-                                        search_selector = "textarea[name='q'], input[name='q']"
-                                        
-                                        if active_page.locator(search_selector).count() > 0:
-                                            # Click xóa văn bản cũ
-                                            active_page.click(search_selector, timeout=3000)
-                                            active_page.wait_for_timeout(random.randint(100, 200))
-                                            active_page.fill(search_selector, "")
-                                            active_page.wait_for_timeout(random.randint(100, 200))
-                                            
-                                            # Tốc độ x2 so với đánh tay (từ 50-130ms xuống còn 25-65ms)
-                                            active_page.type(search_selector, keyword_to_type, delay=random.randint(25, 65))
-                                            self.auto_action_count += len(keyword_to_type)
-                                            
-                                            active_page.wait_for_timeout(random.randint(200, 400))
-                                            active_page.press(search_selector, "Enter")
-                                            self.auto_action_count += 1
-                                            print("[*] Đã gõ xong từ khóa và nhấn Enter!")
-                                        else:
-                                            print("[-] Không tìm thấy ô tìm kiếm Google trên trang hiện tại. Hãy mở Google trước.")
-                                    except Exception as ex:
-                                        print(f"[!] Lỗi khi gõ từ khóa: {ex}")
                                     
                             elif getattr(self, '_pending_action', None) == "fill_login":
                                 self._pending_action = None

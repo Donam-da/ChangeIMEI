@@ -85,11 +85,15 @@ class AntiDetectGUI:
         
         self.is_pinned = False
         self.btn_pin = tk.Button(root, text="📌 Ghim", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_pin, activebackground="#333333", activeforeground="#00e676")
-        self.btn_pin.place(relx=1.0, x=-120, y=30, width=100)
+        self.btn_pin.place(relx=1.0, x=-85, y=30, width=70)
 
         self.is_dark_mode = True
         self.btn_theme = tk.Button(root, text="🌙 Dark", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_theme, activebackground="#333333", activeforeground="#00ffff")
-        self.btn_theme.place(relx=1.0, x=-200, y=30, width=75)
+        self.btn_theme.place(relx=1.0, x=-150, y=30, width=60)
+
+        self.is_bottommost = False
+        self.btn_bottom = tk.Button(root, text="⬇️ Dưới", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_bottom, activebackground="#333333", activeforeground="#b388ff")
+        self.btn_bottom.place(relx=1.0, x=-215, y=30, width=60)
 
         self.clock_label = tk.Label(root, font=("Courier", 8, "bold"), bg="#1e1e1e", fg="#00e676", relief=tk.FLAT)
         self.clock_label.place(x=15, y=30, width=160, height=22)
@@ -126,13 +130,46 @@ class AntiDetectGUI:
         self.last_disconnect_label = tk.Label(net_frame, text="⏱️ Lúc: N/A", font=("Arial", 7, "italic"), fg="#a0a0a0", bg="#121212", width=15, anchor="w")
         self.last_disconnect_label.grid(row=1, column=2, padx=6, sticky="w")
 
-        self.analysis_label = tk.Label(root, text="🔍 Phân tích web: Đang chờ thao tác...", font=("Arial", 8, "bold"), fg="#ffff00", bg="#121212")
-        self.analysis_label.pack(pady=(0, 4))
-
-        tk.Label(root, text="Nhập link URL muốn mở:", font=("Arial", 8), fg="#e0e0e0", bg="#121212").pack()
+        middle_container = tk.Frame(root, bg="#121212")
+        middle_container.pack(fill=tk.X, padx=15, pady=0)
         
-        url_frame = tk.Frame(root, bg="#121212")
-        url_frame.pack(pady=4)
+        left_frame = tk.Frame(middle_container, bg="#121212")
+        left_frame.pack(side=tk.LEFT, fill=tk.Y, anchor="w")
+        
+        right_frame = tk.Frame(middle_container, bg="#121212", width=120, height=65)
+        right_frame.pack(side=tk.RIGHT, anchor="e")
+        right_frame.pack_propagate(False)
+
+        self.analysis_label = tk.Label(left_frame, text="🔍 Phân tích web: Đang chờ thao tác...", font=("Arial", 8, "bold"), fg="#ffff00", bg="#121212", justify=tk.LEFT)
+        self.analysis_label.pack(anchor="w", pady=(0, 4))
+
+        tk.Label(left_frame, text="Nhập link URL muốn mở:", font=("Arial", 8), fg="#e0e0e0", bg="#121212", justify=tk.LEFT).pack(anchor="w")
+        
+        url_frame = tk.Frame(left_frame, bg="#121212")
+        url_frame.pack(anchor="w", pady=4)
+        
+        try:
+            logo_path = os.path.join(os.path.dirname(__file__), 'data', 'logo.png')
+            if os.path.exists(logo_path):
+                try:
+                    from PIL import Image, ImageTk
+                    img = Image.open(logo_path)
+                    try:
+                        resample = Image.Resampling.LANCZOS
+                    except AttributeError:
+                        resample = Image.LANCZOS
+                    img.thumbnail((80, 80), resample)
+                    self.logo_img = ImageTk.PhotoImage(img)
+                except ImportError:
+                    self.logo_img = tk.PhotoImage(file=logo_path)
+                    max_dim = max(self.logo_img.width(), self.logo_img.height())
+                    if max_dim > 80:
+                        factor = int(max_dim / 80) + 1
+                        self.logo_img = self.logo_img.subsample(factor, factor)
+                logo_lbl = tk.Label(right_frame, image=self.logo_img, bg="#121212")
+                logo_lbl.place(x=10, y=-15)
+        except Exception as e:
+            print(f"Lỗi tải logo: {e}")
         
         self.url_entry = tk.Entry(url_frame, width=25, font=("Arial", 8), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT)
         self.url_entry.pack(side=tk.LEFT, ipady=2)
@@ -146,7 +183,7 @@ class AntiDetectGUI:
 
         # Các nút bấm
         btn_frame = tk.Frame(root, bg="#121212")
-        btn_frame.pack(pady=(8, 4))
+        btn_frame.pack(pady=(15, 4))
 
         btn_style = {"font": ("Arial", 8, "bold"), "relief": tk.FLAT, "activebackground": "#00e5ff", "activeforeground": "black"}
 
@@ -324,9 +361,10 @@ class AntiDetectGUI:
         new_h = int(660 * self.current_scale)
         self.root.geometry(f"{new_w}x{new_h}")
 
-        # Tính toán lại tọa độ cho các thành phần neo cố định (Ghim, Theme, Đồng hồ)
-        self.btn_pin.place(relx=1.0, x=int(-120 * self.current_scale), y=int(30 * self.current_scale), width=int(100 * self.current_scale))
-        self.btn_theme.place(relx=1.0, x=int(-200 * self.current_scale), y=int(30 * self.current_scale), width=int(75 * self.current_scale))
+        # Tính toán lại tọa độ cho các thành phần neo cố định (Ghim, Theme, Dưới, Đồng hồ)
+        self.btn_pin.place(relx=1.0, x=int(-85 * self.current_scale), y=int(30 * self.current_scale), width=int(70 * self.current_scale))
+        self.btn_theme.place(relx=1.0, x=int(-150 * self.current_scale), y=int(30 * self.current_scale), width=int(60 * self.current_scale))
+        self.btn_bottom.place(relx=1.0, x=int(-215 * self.current_scale), y=int(30 * self.current_scale), width=int(60 * self.current_scale))
         self.clock_label.place(x=int(15 * self.current_scale), y=int(30 * self.current_scale), width=int(160 * self.current_scale), height=int(22 * self.current_scale))
 
         self._scale_widget_tree(self.root, self.current_scale)
@@ -528,8 +566,7 @@ class AntiDetectGUI:
                 
     def trigger_type_keyword(self, keyword):
         if self.engine.playwright is not None:
-            self.engine.target_typing_keyword = keyword
-            self.engine._pending_action = "type_keyword"
+            self.engine._keyword_to_type = keyword
             self.status_label.config(text=f"Trạng thái: Đang gõ từ khóa '{keyword}'...", fg=self.get_color("#b388ff"))
             self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Delete' để dọn dẹp.", fg=self.get_color("#00bcd4")))
 
@@ -885,9 +922,42 @@ class AntiDetectGUI:
         self.is_pinned = not self.is_pinned
         self.root.attributes("-topmost", self.is_pinned)
         if self.is_pinned:
+            if getattr(self, 'is_bottommost', False):
+                self.is_bottommost = False
+                self.btn_bottom.config(text="⬇️ Dưới", fg=self.get_color("#a0a0a0"))
             self.btn_pin.config(text="📍 Đã Ghim", fg=self.get_color("#00e676"))
         else:
             self.btn_pin.config(text="📌 Ghim", fg=self.get_color("#a0a0a0"))
+            
+    def toggle_bottom(self):
+        """Bật/tắt chế độ luôn nằm dưới cùng của cửa sổ"""
+        self.is_bottommost = not getattr(self, 'is_bottommost', False)
+        if self.is_bottommost:
+            if getattr(self, 'is_pinned', False):
+                self.is_pinned = False
+                self.root.attributes("-topmost", False)
+                self.btn_pin.config(text="📌 Ghim", fg=self.get_color("#a0a0a0"))
+            self.btn_bottom.config(text="⏬ Chìm", fg=self.get_color("#b388ff"))
+            
+            # Bắt sự kiện click hoặc focus để lập tức ép phần mềm xuống đáy
+            if not hasattr(self, '_focus_lower_bound'):
+                self.root.bind("<FocusIn>", self._force_lower, add="+")
+                self.root.bind_all("<Button-1>", self._force_lower, add="+")
+                self._focus_lower_bound = True
+                
+            self.root.lower()
+            self._keep_bottommost()
+        else:
+            self.btn_bottom.config(text="⬇️ Dưới", fg=self.get_color("#a0a0a0"))
+
+    def _force_lower(self, event=None):
+        if getattr(self, 'is_bottommost', False):
+            self.root.lower()
+
+    def _keep_bottommost(self):
+        if getattr(self, 'is_bottommost', False):
+            self.root.lower()
+            self.root.after(150, self._keep_bottommost)
             
     def regenerate_profiles(self):
         if self.engine.playwright is not None or (hasattr(self, '_is_wiping') and self._is_wiping):
