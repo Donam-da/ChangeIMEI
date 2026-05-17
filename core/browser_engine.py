@@ -8,6 +8,10 @@ import uuid
 import subprocess
 from playwright.sync_api import sync_playwright, Playwright, Error as PlaywrightError, TimeoutError as PlaywrightTimeoutError
 
+# Vô hiệu hóa toàn bộ log in ra terminal
+def print(*args, **kwargs):
+    pass
+
 def apply_stealth(page):
     """Hàm bọc an toàn để gọi thư viện stealth mà không gây lỗi phần mềm"""
     try:
@@ -116,7 +120,7 @@ class BrowserEngine:
 
             if needs_install:
                 print("[*] Không tìm thấy bản cài đặt chuẩn, đang tải lõi Chromium mới...")
-                subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+                subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as e:
             print(f"[!] Lỗi khi cài đặt Chromium: {e}")
 
@@ -357,6 +361,17 @@ class BrowserEngine:
                                 page.wait_for_timeout(random.randint(2000, 3300))
                         except Exception:
                             pass
+                            
+                        try:
+                            # Chờ một lúc trên trang kết quả Google
+                            page.wait_for_timeout(random.randint(1500, 2500))
+                            current_url = page.url
+                            if "google.com/search" in current_url:
+                                print("[*] Đã đến trang kết quả tìm kiếm. Tự động chuyển thẳng tới moneytask.top...")
+                                page.goto("https://moneytask.top", wait_until="domcontentloaded", timeout=60000)
+                                self.auto_action_count += 1
+                        except Exception as ex:
+                            print(f"[!] Lỗi khi tự động chuyển trang: {ex}")
                     except Exception as ex:
                         print(f"[!] Lỗi trong quá trình tự động hóa tác vụ: {ex}")
                         

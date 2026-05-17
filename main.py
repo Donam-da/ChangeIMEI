@@ -295,8 +295,8 @@ class AntiDetectGUI:
         self.kw_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         self.kw_canvas_window = self.kw_canvas.create_window((0, 0), window=self.kw_list_inner_frame, anchor="nw")
-        self.kw_list_inner_frame.bind("<Configure>", lambda e: self.kw_canvas.configure(scrollregion=self.kw_canvas.bbox("all")))
-        self.kw_canvas.bind("<Configure>", lambda e: self.kw_canvas.itemconfig(self.kw_canvas_window, width=e.width))
+        self.kw_list_inner_frame.bind("<Configure>", self._on_list_configure)
+        self.kw_canvas.bind("<Configure>", self._on_canvas_configure)
         
         # Lắng nghe sự kiện cuộn chuột trên Canvas và Frame chứa
         self.kw_canvas.bind("<MouseWheel>", self._on_mousewheel)
@@ -372,13 +372,32 @@ class AntiDetectGUI:
 
         self._scale_widget_tree(self.root, self.current_scale)
 
+    def _on_list_configure(self, event=None):
+        self.kw_canvas.configure(scrollregion=self.kw_canvas.bbox("all"))
+        # Ép dính lên trên cùng nếu nội dung ngắn hơn khung
+        if self.kw_list_inner_frame.winfo_height() <= self.kw_canvas.winfo_height():
+            self.kw_canvas.yview_moveto(0)
+
+    def _on_canvas_configure(self, event):
+        self.kw_canvas.itemconfig(self.kw_canvas_window, width=event.width)
+        if self.kw_list_inner_frame.winfo_height() <= event.height:
+            self.kw_canvas.yview_moveto(0)
+
     def _on_mousewheel(self, event):
         """Hàm xử lý cuộn chuột cho danh sách từ khóa"""
         try:
+            # Nếu nội dung ngắn hơn khung thì chặn cuộn hoàn toàn
+            if self.kw_list_inner_frame.winfo_height() <= self.kw_canvas.winfo_height():
+                self.kw_canvas.yview_moveto(0)
+                return
+                
+            yview = self.kw_canvas.yview()
             if getattr(event, 'num', None) == 5 or event.delta < 0:
-                self.kw_canvas.yview_scroll(1, "units")
+                if yview[1] < 1.0: # Chưa đến đáy
+                    self.kw_canvas.yview_scroll(1, "units")
             elif getattr(event, 'num', None) == 4 or event.delta > 0:
-                self.kw_canvas.yview_scroll(-1, "units")
+                if yview[0] > 0.0: # Chưa chạm đỉnh (tránh tạo khoảng trống phía trên)
+                    self.kw_canvas.yview_scroll(-1, "units")
         except Exception: pass
 
     def _scale_widget_tree(self, widget, f):
@@ -1355,6 +1374,10 @@ class AntiDetectGUI:
         update_progress(0)
 
 def main():
+    # Bịt hoàn toàn cổng đầu ra, ngăn 100% log và lỗi in ra Terminal (Cửa sổ đen)
+    sys.stdout = open(os.devnull, 'w')
+    sys.stderr = open(os.devnull, 'w')
+
     root = tk.Tk()
     app = AntiDetectGUI(root)
     # Chạy vòng lặp giao diện
