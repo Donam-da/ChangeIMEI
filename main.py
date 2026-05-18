@@ -38,7 +38,7 @@ class AntiDetectGUI:
         self.current_scale = 0.8
         # Căn giữa cửa sổ phần mềm chính trên màn hình lúc mới bật
         window_w = int(400 * self.current_scale)
-        window_h = int(660 * self.current_scale)
+        window_h = int(560 * self.current_scale)
         screen_w = root.winfo_screenwidth()
         screen_h = root.winfo_screenheight()
 
@@ -74,97 +74,30 @@ class AntiDetectGUI:
         # -------------------------------------------------------
 
         self.engine = BrowserEngine()
-        self.engine.set_network_callback(self.update_network_analysis)
         
         self.credentials_file = os.path.join(os.path.dirname(__file__), 'data', 'credentials.json')
         self.keywords_file = os.path.join(os.path.dirname(__file__), 'data', 'keywords.json')
         self.keywords = self.load_keywords()
         
-        # Thiết kế các thành phần Giao diện (UI)
-        tk.Label(root, text="Fix 24h upto", font=("Arial", 10, "bold"), fg="#00ffff", bg="#121212").pack(pady=(10, 5))
-        
         self.is_pinned = False
         self.btn_pin = tk.Button(root, text="📌 Ghim", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_pin, activebackground="#333333", activeforeground="#00e676")
-        self.btn_pin.place(relx=1.0, x=-85, y=30, width=70)
+        self.btn_pin.place(relx=1.0, x=-85, y=15, width=70)
 
         self.is_dark_mode = True
         self.btn_theme = tk.Button(root, text="🌙 Dark", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_theme, activebackground="#333333", activeforeground="#00ffff")
-        self.btn_theme.place(relx=1.0, x=-150, y=30, width=60)
+        self.btn_theme.place(relx=1.0, x=-150, y=15, width=60)
 
         self.is_bottommost = False
         self.btn_bottom = tk.Button(root, text="⬇️ Dưới", font=("Arial", 7, "bold"), bg="#1e1e1e", fg="#a0a0a0", relief=tk.FLAT, command=self.toggle_bottom, activebackground="#333333", activeforeground="#b388ff")
-        self.btn_bottom.place(relx=1.0, x=-215, y=30, width=60)
-
-        self.clock_label = tk.Label(root, font=("Courier", 8, "bold"), bg="#1e1e1e", fg="#00e676", relief=tk.FLAT)
-        self.clock_label.place(x=15, y=30, width=160, height=22)
-        self.update_clock()
-
-        # Bảng thông tin mạng (Dùng lưới Grid để căn chỉnh Icon và Chữ luôn thẳng hàng)
-        net_frame = tk.Frame(root, bg="#121212")
-        net_frame.pack(pady=(25, 8))
-
-        ip_frame = tk.Frame(net_frame, bg="#121212")
-        ip_frame.grid(row=0, column=0, rowspan=2, padx=(16, 6))
-        
-        self.is_ip_hidden = False
-        self.current_ip_str = "Đang kiểm..."
-        self.current_ip_err = False
-        
-        self.btn_toggle_ip = tk.Button(ip_frame, text="👁️", bg="#121212", fg="#a0a0a0", relief=tk.FLAT, font=("Arial", 8), command=self.toggle_ip_visibility, activebackground="#333333", activeforeground="#a0a0a0", bd=0, padx=2, pady=0, width=2)
-        self.btn_toggle_ip.pack(side=tk.LEFT)
-        self.ip_label = tk.Label(ip_frame, text="IP: Đang kiểm...", font=("Arial", 8, "bold"), fg="#00e676", bg="#121212", width=18, anchor="w")
-        self.ip_label.pack(side=tk.LEFT)
-
-        self.ping_label = tk.Label(net_frame, text="⚡ Ping: ...", font=("Arial", 8, "bold"), fg="#ffb74d", bg="#121212", width=14, anchor="w")
-        self.ping_label.grid(row=0, column=1, rowspan=2, padx=6)
-
-        self.disconnect_count = 0
-        self.disconnect_label = tk.Label(net_frame, text="❌ Rớt: 0", font=("Arial", 8, "bold"), fg="#ff5252", bg="#121212", width=10, anchor="w")
-        self.disconnect_label.grid(row=0, column=2, padx=6, sticky="w")
-        
-        self.last_disconnect_label = tk.Label(net_frame, text="⏱️ Lúc: N/A", font=("Arial", 7, "italic"), fg="#a0a0a0", bg="#121212", width=15, anchor="w")
-        self.last_disconnect_label.grid(row=1, column=2, padx=6, sticky="w")
+        self.btn_bottom.place(relx=1.0, x=-215, y=15, width=60)
 
         middle_container = tk.Frame(root, bg="#121212")
-        middle_container.pack(fill=tk.X, padx=15, pady=0)
+        middle_container.pack(fill=tk.X, padx=15, pady=(45, 0))
         
-        left_frame = tk.Frame(middle_container, bg="#121212")
-        left_frame.pack(side=tk.LEFT, fill=tk.Y, anchor="w")
+        tk.Label(middle_container, text="Nhập link URL muốn mở:", font=("Arial", 8), fg="#e0e0e0", bg="#121212", justify=tk.LEFT).pack(anchor="w")
         
-        right_frame = tk.Frame(middle_container, bg="#121212", width=120, height=65)
-        right_frame.pack(side=tk.RIGHT, anchor="e")
-        right_frame.pack_propagate(False)
-
-        self.analysis_label = tk.Label(left_frame, text="🔍 Phân tích web: Đang chờ thao tác...", font=("Arial", 8, "bold"), fg="#ffff00", bg="#121212", justify=tk.LEFT)
-        self.analysis_label.pack(anchor="w", pady=(0, 4))
-
-        tk.Label(left_frame, text="Nhập link URL muốn mở:", font=("Arial", 8), fg="#e0e0e0", bg="#121212", justify=tk.LEFT).pack(anchor="w")
-        
-        url_frame = tk.Frame(left_frame, bg="#121212")
+        url_frame = tk.Frame(middle_container, bg="#121212")
         url_frame.pack(anchor="w", pady=4)
-        
-        try:
-            logo_path = os.path.join(os.path.dirname(__file__), 'data', 'logo.png')
-            if os.path.exists(logo_path):
-                try:
-                    from PIL import Image, ImageTk
-                    img = Image.open(logo_path)
-                    try:
-                        resample = Image.Resampling.LANCZOS
-                    except AttributeError:
-                        resample = Image.LANCZOS
-                    img.thumbnail((80, 80), resample)
-                    self.logo_img = ImageTk.PhotoImage(img)
-                except ImportError:
-                    self.logo_img = tk.PhotoImage(file=logo_path)
-                    max_dim = max(self.logo_img.width(), self.logo_img.height())
-                    if max_dim > 80:
-                        factor = int(max_dim / 80) + 1
-                        self.logo_img = self.logo_img.subsample(factor, factor)
-                logo_lbl = tk.Label(right_frame, image=self.logo_img, bg="#121212")
-                logo_lbl.place(x=10, y=-15)
-        except Exception as e:
-            print(f"Lỗi tải logo: {e}")
         
         self.url_entry = tk.Entry(url_frame, width=25, font=("Arial", 8), bg="#1e1e1e", fg="#00ffff", insertbackground="#00ffff", relief=tk.FLAT)
         self.url_entry.pack(side=tk.LEFT, ipady=2)
@@ -172,9 +105,6 @@ class AntiDetectGUI:
         
         self.btn_toggle_url = tk.Button(url_frame, text="👁️", bg="#1e1e1e", fg="#00ffff", relief=tk.FLAT, font=("Arial", 8), width=2, command=self.toggle_url_visibility, activebackground="#333333", activeforeground="#00ffff")
         self.btn_toggle_url.pack(side=tk.LEFT, padx=(4, 0), ipady=0)
-        
-        self.btn_server_load = tk.Button(url_frame, text="📊 Đo tải", bg="#1e1e1e", fg="#ffb74d", relief=tk.FLAT, font=("Arial", 8, "bold"), command=self.measure_server_load, activebackground="#333333", activeforeground="#ffb74d")
-        self.btn_server_load.pack(side=tk.LEFT, padx=(4, 0), ipady=0)
 
         # Các nút bấm
         btn_frame = tk.Frame(root, bg="#121212")
@@ -228,38 +158,15 @@ class AntiDetectGUI:
         self.scale_cb.bind("<<ComboboxSelected>>", self.apply_scale)
         # ---------------------------------
 
-        # --- Hiển thị đường dẫn dữ liệu ---
-        info_frame = tk.Frame(root, bg="#121212")
-        info_frame.pack(pady=(4, 0), fill=tk.X, padx=15)
-
-        tk.Label(info_frame, 
-                 text="Nơi lưu trữ trình duyệt:", 
-                 font=("Arial", 7, "italic"), fg="#a0a0a0", bg="#121212",
-                 justify=tk.LEFT).pack(anchor='w', pady=(0, 2))
-        
-        browser_path = self.get_playwright_browser_path(is_running=False)
-        self.path_entry = tk.Entry(info_frame, font=("Courier", 7), bg="#1e1e1e", fg="#d2b48c", readonlybackground="#1e1e1e", relief=tk.FLAT)
-        self.path_entry.insert(0, browser_path)
-        self.path_entry.config(state='readonly')
-        self.path_entry.pack(fill=tk.X, expand=True, ipady=2)
-
         # --- Container cho khung Thiết bị ---
         bottom_container = tk.Frame(root, bg="#121212")
         bottom_container.pack(pady=(8, 0), fill=tk.BOTH, expand=True, padx=15)
         
         bottom_container.columnconfigure(0, weight=1)
-        bottom_container.rowconfigure(0, weight=0)
-        bottom_container.rowconfigure(1, weight=1)
-
-        # Cột 1: Hiển thị thông số cấu hình giả lập
-        self.device_info_frame = tk.LabelFrame(bottom_container, text="Chi tiết trình duyệt vừa tạo:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
-        self.device_info_frame.grid(row=0, column=0, sticky="nsew", padx=0)
-        
-        self.device_info_text = tk.Text(self.device_info_frame, height=3, font=("Courier", 7), bg="#1e1e1e", fg="#00ffff", state=tk.DISABLED, wrap=tk.WORD, relief=tk.FLAT)
-        self.device_info_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=3)
+        bottom_container.rowconfigure(0, weight=1)
 
         self.keyword_frame = tk.LabelFrame(bottom_container, text="Từ khóa tự động tìm kiếm Google:", font=("Arial", 7, "bold"), bg="#121212", fg="#00bcd4")
-        self.keyword_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=(4, 0))
+        self.keyword_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=(4, 0))
         
         kw_top_frame = tk.Frame(self.keyword_frame, bg="#121212")
         kw_top_frame.pack(fill=tk.X, padx=5, pady=(5, 2))
@@ -325,9 +232,6 @@ class AntiDetectGUI:
         # Mở hộp thoại tiến trình khởi tạo khi vừa mở Tool
         self.root.after(300, self.show_initialization)
 
-        # Khởi động luồng theo dõi IP liên tục
-        self.start_ip_monitor()
-
         # Cập nhật cỡ chữ và giao diện theo scale hiện tại ngay khi phần mềm khởi động xong
         self.root.after(50, self.apply_scale)
 
@@ -340,11 +244,6 @@ class AntiDetectGUI:
         if not self.kw_entry.get():
             self.kw_entry.insert(0, self.placeholder_text)
             self.kw_entry.config(fg=self.get_color("#a0a0a0"))
-
-    def update_network_analysis(self, cookie_count, auto_cmds=0, server_health=100.0):
-        def _update():
-            self.analysis_label.config(text=f"🔍 Phân tích web: Cookies: {cookie_count} | 🚦 Server: {server_health:.2f}%", fg=self.get_color("#ffff00"))
-        self.root.after(0, _update)
 
     def update_clock(self):
         current_time = time.strftime("%H:%M:%S | %d/%m/%Y")
@@ -361,14 +260,13 @@ class AntiDetectGUI:
         else: self.current_scale = 1.0
 
         new_w = int(400 * self.current_scale)
-        new_h = int(660 * self.current_scale)
+        new_h = int(560 * self.current_scale)
         self.root.geometry(f"{new_w}x{new_h}")
 
         # Tính toán lại tọa độ cho các thành phần neo cố định (Ghim, Theme, Dưới, Đồng hồ)
-        self.btn_pin.place(relx=1.0, x=int(-85 * self.current_scale), y=int(30 * self.current_scale), width=int(70 * self.current_scale))
-        self.btn_theme.place(relx=1.0, x=int(-150 * self.current_scale), y=int(30 * self.current_scale), width=int(60 * self.current_scale))
-        self.btn_bottom.place(relx=1.0, x=int(-215 * self.current_scale), y=int(30 * self.current_scale), width=int(60 * self.current_scale))
-        self.clock_label.place(x=int(15 * self.current_scale), y=int(30 * self.current_scale), width=int(160 * self.current_scale), height=int(22 * self.current_scale))
+        self.btn_pin.place(relx=1.0, x=int(-85 * self.current_scale), y=int(15 * self.current_scale), width=int(70 * self.current_scale))
+        self.btn_theme.place(relx=1.0, x=int(-150 * self.current_scale), y=int(15 * self.current_scale), width=int(60 * self.current_scale))
+        self.btn_bottom.place(relx=1.0, x=int(-215 * self.current_scale), y=int(15 * self.current_scale), width=int(60 * self.current_scale))
 
         self._scale_widget_tree(self.root, self.current_scale)
 
@@ -676,159 +574,6 @@ class AntiDetectGUI:
         self.apply_current_theme(self.cred_dialog)
         self.cred_dialog.deiconify() # Hiển thị ra sau khi đã dàn trang xong
 
-    def start_ip_monitor(self):
-        """Chạy luồng ngầm liên tục kiểm tra IP mạng của máy mỗi 2 giây"""
-        def monitor():
-            import time
-            current_ip = ""
-            was_disconnected = False
-            was_unstable = False
-            
-            def update_ui(i, l, err=False, disc_time=None):
-                self.current_ip_str = i
-                self.current_ip_err = err
-                self._update_ip_display()
-                
-                c_ping = "#ff5252" if err else "#ffb74d"
-                self.ping_label.config(text=f"⚡ Ping: {l}", fg=self.get_color(c_ping))
-                self.disconnect_label.config(text=f"❌ Rớt: {self.disconnect_count}")
-                if disc_time:
-                    self.last_disconnect_label.config(text=f"⏱️ Lúc: {disc_time}")
-
-            while True:
-                try:
-                    import socket
-                    # Đo Ping thực tế bằng kết nối TCP siêu nhẹ tới DNS Google (giống hệt ICMP Ping thực tế)
-                    try:
-                        ping_start = time.time()
-                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                            s.settimeout(1.5)
-                            s.connect(("8.8.8.8", 53))
-                        latency_val = int((time.time() - ping_start) * 1000)
-                        latency = f"{latency_val}ms"
-                    except Exception:
-                        latency_val = 9999
-                        latency = "N/A"
-                        
-                    # Lấy IP (Không dùng thời gian tải HTTPS này làm số Ping nữa)
-                    req = urllib.request.Request("https://api.ipify.org", headers={'User-Agent': 'Mozilla/5.0'})
-                    with urllib.request.urlopen(req, timeout=2) as response:
-                        ip = response.read().decode('utf-8').strip()
-                        
-                        if was_disconnected:
-                            was_disconnected = False
-
-                        if latency_val >= 300 and latency_val != 9999:
-                            if not was_unstable:
-                                was_unstable = True
-                                self.root.after(0, lambda l=latency: self.show_unstable_network_popup(l))
-                        else:
-                            was_unstable = False
-
-                        self.root.after(0, update_ui, ip, latency, False)
-                except Exception:
-                    disc_time_str = None
-                    if not was_disconnected:
-                        self.disconnect_count += 1
-                        was_disconnected = True
-                        disc_time_str = time.strftime("%H:%M:%S")
-                        self.root.after(0, self.show_disconnect_popup)
-                    self.root.after(0, update_ui, "Mất kết nối", "N/A", True, disc_time_str)
-                    current_ip = ""
-                time.sleep(2)
-                
-        threading.Thread(target=monitor, daemon=True).start()
-
-    def show_disconnect_popup(self):
-        if hasattr(self, 'disconnect_popup') and self.disconnect_popup.winfo_exists():
-            return
-            
-        self.disconnect_popup = tk.Toplevel(self.root)
-        self.disconnect_popup.withdraw()
-        self.disconnect_popup.overrideredirect(True) # Xóa thanh tiêu đề để trông giống thông báo nổi hơn
-        
-        dialog_w = int(240 * self.current_scale)
-        dialog_h = int(60 * self.current_scale)
-        
-        screen_w = self.root.winfo_screenwidth()
-        screen_h = self.root.winfo_screenheight()
-        pos_x = (screen_w // 2) - (dialog_w // 2)
-        pos_y = (screen_h // 2) - (dialog_h // 2)
-        
-        self.disconnect_popup.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
-        self.disconnect_popup.attributes("-topmost", True) # Luôn nổi trên cùng, không bị che
-        
-        border_frame = tk.Frame(self.disconnect_popup, bg="#ff5252")
-        border_frame.pack(fill=tk.BOTH, expand=True)
-        
-        inner_frame = tk.Frame(border_frame, bg="#121212")
-        inner_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
-        
-        tk.Label(inner_frame, text="⚠️ CẢNH BÁO: MẤT KẾT NỐI MẠNG!", font=("Arial", 8, "bold"), fg="#ff5252", bg="#121212").pack(expand=True)
-        
-        self._scale_widget_tree(self.disconnect_popup, self.current_scale)
-        self.apply_current_theme(self.disconnect_popup)
-        
-        self.disconnect_popup.deiconify()
-        
-        # Tự động đóng sau 5 giây (5000 ms)
-        self.root.after(5000, lambda: self.disconnect_popup.destroy() if self.disconnect_popup.winfo_exists() else None)
-
-    def show_unstable_network_popup(self, ping_str):
-        if hasattr(self, 'unstable_popup') and self.unstable_popup.winfo_exists():
-            return
-            
-        self.unstable_popup = tk.Toplevel(self.root)
-        self.unstable_popup.withdraw()
-        self.unstable_popup.overrideredirect(True) # Xóa thanh tiêu đề
-        
-        dialog_w = int(240 * self.current_scale)
-        dialog_h = int(60 * self.current_scale)
-        
-        screen_w = self.root.winfo_screenwidth()
-        screen_h = self.root.winfo_screenheight()
-        pos_x = (screen_w // 2) - (dialog_w // 2)
-        pos_y = (screen_h // 2) - (dialog_h // 2) - int(70 * self.current_scale) # Hơi đẩy lên trên để không đè vào thông báo mất kết nối
-        
-        self.unstable_popup.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
-        self.unstable_popup.attributes("-topmost", True)
-        
-        border_frame = tk.Frame(self.unstable_popup, bg="#ff9800") # Viền màu cam
-        border_frame.pack(fill=tk.BOTH, expand=True)
-        
-        inner_frame = tk.Frame(border_frame, bg="#121212")
-        inner_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
-        
-        tk.Label(inner_frame, text=f"⚠️ MẠNG KHÔNG ỔN ĐỊNH (Ping: {ping_str})", font=("Arial", 8, "bold"), fg="#ff9800", bg="#121212").pack(expand=True)
-        
-        self._scale_widget_tree(self.unstable_popup, self.current_scale)
-        self.apply_current_theme(self.unstable_popup)
-        
-        self.unstable_popup.deiconify()
-        
-        self.root.after(5000, lambda: self.unstable_popup.destroy() if self.unstable_popup.winfo_exists() else None)
-
-    def toggle_ip_visibility(self):
-        """Hiện/ẩn thông tin IP"""
-        self.is_ip_hidden = not getattr(self, 'is_ip_hidden', False)
-        if self.is_ip_hidden:
-            self.btn_toggle_ip.config(text="🙈")
-        else:
-            self.btn_toggle_ip.config(text="👁️")
-        self._update_ip_display()
-
-    def _update_ip_display(self):
-        ip_val = getattr(self, 'current_ip_str', "Đang kiểm...")
-        is_err = getattr(self, 'current_ip_err', False)
-        c_ip = "#ff5252" if is_err else "#00e676"
-        
-        if getattr(self, 'is_ip_hidden', False) and ip_val not in ["Đang kiểm...", "Mất kết nối"]:
-            display_ip = "***.***.***.***" if "." in ip_val else "***:***:***:***" if ":" in ip_val else "***"
-        else:
-            display_ip = ip_val
-            
-        self.ip_label.config(text=f"IP: {display_ip}", fg=self.get_color(c_ip))
-
     def toggle_url_visibility(self):
         """Hiện/ẩn nội dung ô nhập URL"""
         if self.url_entry.cget('show') == '':
@@ -837,122 +582,6 @@ class AntiDetectGUI:
         else:
             self.url_entry.config(show='')
             self.btn_toggle_url.config(text="👁️")
-
-    def measure_server_load(self):
-        url = self.url_entry.get().strip()
-        if not url:
-            messagebox.showwarning("Lỗi", "Vui lòng nhập URL để đo tải!", parent=self.root)
-            return
-            
-        if not url.startswith("http"):
-            url = "https://" + url
-            
-        self.btn_server_load.config(text="⏳ Đang đo...", state=tk.DISABLED)
-        
-        def worker():
-            import time
-            import urllib.request
-            from urllib.parse import urlparse
-            import random
-            
-            try:
-                domain = urlparse(url).netloc
-                
-                # Bóc tách thông minh: Nếu dùng Google Search, lấy tên miền mục tiêu ra để đo
-                if "google.com/search" in url and "q=" in url:
-                    from urllib.parse import parse_qs
-                    query = parse_qs(urlparse(url).query)
-                    if 'q' in query:
-                        target = query['q'][0]
-                        domain = target.replace("https://", "").replace("http://", "").split("/")[0]
-
-                check_url = f"https://{domain}"
-                
-                start_time = time.time()
-                req = urllib.request.Request(check_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-                
-                try:
-                    with urllib.request.urlopen(req, timeout=5) as response:
-                        response.read(1024) # Chỉ cần đọc mồi 1KB để xác định tốc độ phản hồi của Máy chủ
-                    elapsed = time.time() - start_time
-                    
-                    if elapsed < 0.2: score = random.randint(1, 10)
-                    elif elapsed < 0.5: score = random.randint(11, 30)
-                    elif elapsed < 1.0: score = random.randint(31, 50)
-                    elif elapsed < 2.0: score = random.randint(51, 75)
-                    elif elapsed < 4.0: score = random.randint(76, 90)
-                    else: score = random.randint(91, 99)
-                    
-                    status = "Mượt mà (Ít người)" if score <= 30 else "Bình thường" if score <= 60 else "Khá tải (Nhiều người)" if score <= 85 else "Quá tải (Nguy cơ sập)"
-                    color = "#00e676" if score <= 30 else "#ffff00" if score <= 60 else "#ff9800" if score <= 85 else "#ff5252"
-                    
-                except Exception:
-                    elapsed = 999
-                    score = 100
-                    status = "Sập / Không phản hồi"
-                    color = "#ff5252"
-                
-                def update_ui():
-                    self.btn_server_load.config(text="📊 Đo tải", state=tk.NORMAL)
-                    self.show_server_load_popup(domain, score, elapsed, status, color)
-                    
-                self.root.after(0, update_ui)
-                
-            except Exception:
-                self.root.after(0, lambda: self.btn_server_load.config(text="📊 Đo tải", state=tk.NORMAL))
-
-        threading.Thread(target=worker, daemon=True).start()
-
-    def show_server_load_popup(self, domain, score, elapsed, status, color):
-        if hasattr(self, 'load_popup') and self.load_popup.winfo_exists():
-            self.load_popup.destroy()
-            
-        self.load_popup = tk.Toplevel(self.root)
-        self.load_popup.withdraw()
-        self.load_popup.title("Phân tích Tải Máy Chủ")
-        
-        dialog_w = int(350 * self.current_scale)
-        dialog_h = int(180 * self.current_scale)
-        
-        self.root.update_idletasks()
-        main_x = self.root.winfo_rootx()
-        main_y = self.root.winfo_rooty()
-        main_w = self.root.winfo_width()
-        main_h = self.root.winfo_height()
-        pos_x = main_x + (main_w // 2) - (dialog_w // 2)
-        pos_y = main_y + (main_h // 2) - (dialog_h // 2)
-        
-        self.load_popup.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
-        self.load_popup.configure(bg="#121212")
-        self.load_popup.transient(self.root)
-        self.load_popup.attributes("-topmost", True)
-        
-        tk.Label(self.load_popup, text=f"🌐 Server: {domain}", font=("Arial", 9, "bold"), fg="#00bcd4", bg="#121212").pack(pady=(15, 5))
-        
-        progress_frame = tk.Frame(self.load_popup, bg="#121212")
-        progress_frame.pack(pady=5, fill=tk.X, padx=20)
-        
-        tk.Label(progress_frame, text="0", font=("Arial", 7), fg="#a0a0a0", bg="#121212").pack(side=tk.LEFT)
-        
-        style = ttk.Style(self.load_popup)
-        style_name = f"Load_{score}.Horizontal.TProgressbar"
-        style.configure(style_name, troughcolor="#1e1e1e", background=color)
-        
-        pb = ttk.Progressbar(progress_frame, orient=tk.HORIZONTAL, mode='determinate', style=style_name)
-        pb.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        pb['value'] = score
-        tk.Label(progress_frame, text="100", font=("Arial", 7), fg="#a0a0a0", bg="#121212").pack(side=tk.LEFT)
-        
-        tk.Label(self.load_popup, text=f"Chỉ số Tải: {score}/100", font=("Arial", 16, "bold"), fg=color, bg="#121212").pack()
-        
-        ping_text = "N/A" if elapsed == 999 else f"{int(elapsed * 1000)}ms"
-        tk.Label(self.load_popup, text=f"Trạng thái: {status} (Độ trễ: {ping_text})", font=("Arial", 8, "italic"), fg="#e0e0e0", bg="#121212").pack(pady=5)
-        
-        tk.Button(self.load_popup, text="Đóng", command=self.load_popup.destroy, bg="#333333", fg="white", font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#555555", activeforeground="white").pack(pady=5, ipadx=10)
-        
-        self._scale_widget_tree(self.load_popup, self.current_scale)
-        self.apply_current_theme(self.load_popup)
-        self.load_popup.deiconify()
 
     def toggle_pin(self):
         """Bật/tắt chế độ luôn nổi trên cùng (Topmost) của cửa sổ"""
@@ -1044,9 +673,6 @@ class AntiDetectGUI:
         # Sinh 1 cấu hình duy nhất ngay lập tức
         self.current_profile = self.engine.device_faker.generate_new_device(preferred_timezone=preferred_tz, platform_type=preferred_platform)
         
-        self.device_info_frame.config(text="Chi tiết trình duyệt:")
-        self.update_device_info_display(self.current_profile)
-        
         self.btn_ip_that.config(state=tk.NORMAL)
         self.btn_proxy.config(state=tk.NORMAL)
         self.btn_delete.config(state=tk.DISABLED)
@@ -1054,35 +680,9 @@ class AntiDetectGUI:
         self.btn_auto_task_step.config(state=tk.DISABLED)
         self.status_label.config(text="Trạng thái: Sẵn sàng (Thiết bị mới)", fg=self.get_color("#00e676"))
         
-        if hasattr(self, 'path_entry'):
-            self.path_entry.config(state=tk.NORMAL)
-            self.path_entry.delete(0, tk.END)
-            self.path_entry.insert(0, self.get_playwright_browser_path(is_running=False))
-            self.path_entry.config(state='readonly')
-            
         if getattr(self, 'auto_launch_hidden', False):
             self.auto_launch_hidden = False # Chỉ chạy tự động ở lần nạp cấu hình đầu tiên
             self.root.after(500, lambda: self.launch_ip_that(headless=True))
-
-    def update_device_info_display(self, profile):
-        """Cập nhật khung hiển thị thông tin thiết bị đã tạo."""
-        self.device_info_text.config(state=tk.NORMAL)
-        self.device_info_text.delete(1.0, tk.END)
-        if profile:
-            ua = profile.get('user_agent') or 'Sử dụng UA chuẩn của máy'
-            if len(ua) > 35:
-                ua = ua[:35] + "..."
-                
-            info_str = (
-                f"Hệ điều hành : {profile.get('platform', 'N/A')} (Mobile: {profile.get('is_mobile', False)})\n"
-                f"Độ phân giải : {profile['viewport']['width']}x{profile['viewport']['height']}\n"
-                f"Múi giờ      : {profile['timezone_id']}\n"
-                f"Ngôn ngữ     : {profile['locale']}\n"
-                f"User-Agent   : {ua}\n"
-                f"File chạy    : {profile.get('executable_path', 'Đang chờ khởi chạy...')}"
-            )
-            self.device_info_text.insert(tk.END, info_str)
-        self.device_info_text.config(state=tk.DISABLED)
 
     def on_closing(self):
         """Xử lý sự kiện đóng cửa sổ chính của ứng dụng."""
@@ -1126,7 +726,7 @@ class AntiDetectGUI:
                 
                 try:
                     # Chỉ xóa thư mục tạm của đúng trình duyệt ở cửa sổ này dựa vào đường dẫn data
-                    current_path = self.path_entry.get()
+                    current_path = getattr(self.engine, 'user_data_dir', None)
                     if current_path and os.path.exists(current_path) and ("Clean_Profile_" in current_path or "playwright_" in current_path or "pyright-" in current_path):
                         shutil.rmtree(current_path, ignore_errors=True)
                 except Exception: pass
@@ -1169,18 +769,6 @@ class AntiDetectGUI:
         # Nếu người dùng bấm X trên hộp thoại đếm ngược -> xem như Hủy
         dialog.protocol("WM_DELETE_WINDOW", cancel)
 
-    def get_playwright_browser_path(self, is_running=False):
-        """Lấy đường dẫn thư mục chứa dữ liệu cấu hình tạm thời của trình duyệt Playwright."""
-        try:
-            if not is_running:
-                return "Đang chờ khởi chạy..."
-            if hasattr(self.engine, 'user_data_dir') and self.engine.user_data_dir:
-                return self.engine.user_data_dir
-            return "Không tìm thấy thư mục tạm thời."
-        except Exception as e:
-            print(f"Lỗi khi lấy đường dẫn: {e}")
-            return "Không thể xác định đường dẫn."
-
     def set_ui_for_browser_state(self, is_running):
         """Cập nhật trạng thái các nút bấm và label trên giao diện."""
         if is_running:
@@ -1191,12 +779,10 @@ class AntiDetectGUI:
             self.btn_auto_task.config(state=tk.NORMAL)
             self.btn_auto_task_step.config(state=tk.NORMAL)
             self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Delete' để dọn dẹp.", fg=self.get_color("#00bcd4"))
-            self.analysis_label.config(text="🔍 Phân tích web: Đang thu thập dữ liệu...", fg=self.get_color("#ffff00"))
         else:
             self.btn_auto_login.config(state=tk.DISABLED)
             self.btn_auto_task.config(state=tk.DISABLED)
             self.btn_auto_task_step.config(state=tk.DISABLED)
-            self.analysis_label.config(text="🔍 Phân tích web: Đang chờ thao tác...", fg=self.get_color("#ffff00"))
 
     def trigger_auto_login(self):
         """Gửi lệnh điền tài khoản đến luồng duyệt web"""
@@ -1238,20 +824,10 @@ class AntiDetectGUI:
         self.engine.login_password = creds.get("password", "")
 
         try:
-            def on_browser_created():
-                def update_path():
-                    if hasattr(self, 'path_entry'):
-                        self.path_entry.config(state=tk.NORMAL)
-                        self.path_entry.delete(0, tk.END)
-                        self.path_entry.insert(0, self.get_playwright_browser_path(is_running=True))
-                        self.path_entry.config(state='readonly')
-                self.root.after(0, update_path)
-
             # Callback này sẽ được gọi từ worker thread khi trình duyệt đã mở thành công
             def on_launch_success(device_profile):
                 def update_ui():
                     self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Delete' để dọn dẹp.", fg=self.get_color("#00bcd4"))
-                    self.update_device_info_display(device_profile)
                 self.root.after(0, update_ui)
 
             # Lệnh này sẽ block cho đến khi trình duyệt được đóng và dọn dẹp xong
@@ -1260,7 +836,7 @@ class AntiDetectGUI:
                 use_proxy=use_proxy,
                 on_launch_callback=on_launch_success,
                 device_profile=self.current_profile,
-                on_browser_created=on_browser_created,
+                on_browser_created=None,
                 headless=headless,
                 search_keywords=self.keywords
             )
@@ -1358,7 +934,7 @@ class AntiDetectGUI:
                     
                     try:
                         # Chỉ xóa thư mục tạm của đúng trình duyệt ở cửa sổ này dựa vào đường dẫn data
-                        current_path = self.path_entry.get()
+                        current_path = getattr(self.engine, 'user_data_dir', None)
                         if current_path and os.path.exists(current_path) and ("Clean_Profile_" in current_path or "playwright_" in current_path or "pyright-" in current_path):
                             shutil.rmtree(current_path, ignore_errors=True)
                     except Exception: pass

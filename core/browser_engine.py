@@ -34,13 +34,9 @@ class BrowserEngine:
         self.context = None
         self._should_close = False
         self._pending_action = None
-        self.network_callback = None
         self.login_phone = ""
         self.login_password = ""
         self.user_data_dir = ""
-
-    def set_network_callback(self, callback):
-        self.network_callback = callback
 
     def _load_proxies(self):
         """Đọc danh sách proxy từ file txt"""
@@ -174,29 +170,14 @@ class BrowserEngine:
                 if on_browser_created:
                     on_browser_created()
 
-                # --- TÍNH NĂNG GIÁM SÁT NETWORK ---
+                # --- GIÁM SÁT NETWORK ĐỂ FIX LỖI ---
                 self.auto_action_count = 0
-                self.req_stats = {'total': 0, 'finished': 0}
-                self.latest_latency = 0
-                
-                self.context.on("request", lambda req: self.req_stats.update({'total': self.req_stats['total'] + 1}))
-                self.context.on("requestfinished", lambda req: self.req_stats.update({'finished': self.req_stats['finished'] + 1}))
-                self.context.on("requestfailed", lambda req: self.req_stats.update({'finished': self.req_stats['finished'] + 1}))
                 
                 def handle_network_response(response):
                     try:
                         # --- TỰ ĐỘNG BẮT LỖI TẠCH LINK /finish/ ---
                         if response.request.resource_type == "document" and "finish" in response.url:
                             self._pending_action = "fix_404_error"
-                                
-                        try:
-                            timing = response.request.timing
-                            if timing and timing.get("responseStart", -1) > -1 and timing.get("requestStart", -1) > -1:
-                                latency = timing.get("responseStart") - timing.get("requestStart")
-                                if latency > 0:
-                                    self.latest_latency = latency
-                        except Exception:
-                            pass
                     except Exception:
                         pass
 
@@ -376,13 +357,12 @@ class BrowserEngine:
                         print(f"[!] Lỗi trong quá trình tự động hóa tác vụ: {ex}")
                         
                 except PlaywrightTimeoutError:
-                    print("[!!!] CẢNH BÁO: Mạng quá chậm hoặc rớt kết nối (Timeout 90s).")
-                    print("[!!!] Vui lòng kiểm tra lại chất lượng Proxy (Ping cao hoặc mất kết nối)!")
+                    pass # Bỏ qua cảnh báo mạng chậm
                 except PlaywrightError as e:
                     if "closed" in str(e).lower() or "target page" in str(e).lower():
                         print("[!] Trình duyệt đã bị đóng trong lúc đang tải trang.")
                         return
-                    print(f"[!!!] CẢNH BÁO: Lỗi mạng hoặc kết nối thất bại ({e}). Trình duyệt vẫn sẽ được giữ mở.")
+                    pass # Bỏ qua cảnh báo lỗi mạng
 
                 print("=====================================================")
                 print("Trình duyệt đang mở! Bạn có thể thao tác tay.")
@@ -391,32 +371,10 @@ class BrowserEngine:
 
                 on_launch_callback(device_profile)
 
-                last_health_time = time.time()
                 try:
                     # Giữ tiến trình chạy cho đến khi tất cả các tab bị đóng hoặc trình duyệt tắt
                     while self.context and self.context.pages and not self._should_close:
                         try:
-                            # --- CẬP NHẬT CHỈ SỐ SERVER MỖI 2 GIÂY ---
-                            current_time = time.time()
-                            if current_time - last_health_time >= 2.0:
-                                last_health_time = current_time
-                                try:
-                                    server_health = 100.0
-                                    total = max(1, self.req_stats['total'])
-                                    finished = self.req_stats['finished']
-                                    ratio = finished / total
-                                    
-                                    if getattr(self, 'latest_latency', 0) > 0:
-                                        server_health -= min(70.0, self.latest_latency / 150.0)
-                                        
-                                    server_health -= (1.0 - ratio) * 50.0
-                                    server_health = max(0.01, min(100.0, server_health + random.uniform(-0.5, 0.5)))
-                                    
-                                    if self.network_callback:
-                                        self.network_callback(len(self.context.cookies()), self.auto_action_count, server_health)
-                                except Exception:
-                                    pass
-
                             # --- TỰ ĐỘNG DIỆT CLOUDFLARE TURNSTILE TRONG LÚC RẢNH RỖI ---
                             try:
                                 active_p = self.context.pages[-1]
@@ -916,7 +874,7 @@ class BrowserEngine:
         except PlaywrightError as e:
             # Bắt các lỗi cụ thể của Playwright, ví dụ như không tải được trình duyệt
             print(f"[!!!] Lỗi Playwright: {e}")
-            raise e # Ném lại lỗi để GUI hiển thị
+            # raise e # Ném lại lỗi để GUI hiển thị, đã tắt theo yêu cầu
         finally:
             # Khối này đảm bảo trạng thái được reset ngay cả khi có lỗi
             self.context = None
