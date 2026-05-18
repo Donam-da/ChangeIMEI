@@ -146,9 +146,11 @@ class AntiDetectGUI:
         filter_frame.pack(pady=(0, 6))
         
         tk.Label(filter_frame, text="Thiết bị:", font=("Arial", 8, "bold"), fg="#e0e0e0", bg="#121212").pack(side=tk.LEFT, padx=2)
-        self.platform_var = tk.StringVar(value="Điện thoại")
-        self.platform_cb = ttk.Combobox(filter_frame, textvariable=self.platform_var, values=["Điện thoại", "Máy tính", "Ngẫu nhiên"], state="readonly", font=("Arial", 8), width=10)
-        self.platform_cb.pack(side=tk.LEFT, padx=(0, 5))
+        
+        device_list = self.engine.device_faker.get_device_list()
+        self.platform_var = tk.StringVar(value="Điện thoại (Ngẫu nhiên)")
+        self.platform_cb = ttk.Combobox(filter_frame, textvariable=self.platform_var, values=device_list, state="readonly", font=("Arial", 8), width=22, height=6)
+        self.platform_cb.pack(side=tk.LEFT, padx=(0, 2))
         self.platform_cb.bind("<<ComboboxSelected>>", lambda e: self.regenerate_profiles())
         
         tk.Label(filter_frame, text="Giao diện:", font=("Arial", 8, "bold"), fg="#e0e0e0", bg="#121212").pack(side=tk.LEFT, padx=2)
@@ -454,7 +456,7 @@ class AntiDetectGUI:
     def add_keyword(self):
         kw = self.kw_entry.get().strip()
         if kw and kw != self.placeholder_text and kw not in self.keywords:
-            self.keywords.append(kw)
+            self.keywords.insert(0, kw)
             self.save_keywords()
             self.refresh_keyword_list()
             self.kw_entry.delete(0, tk.END)
@@ -500,10 +502,15 @@ class AntiDetectGUI:
                 lbl.config(bg="#1e1e1e")
                 
     def trigger_type_keyword(self, keyword):
-        if self.engine.playwright is not None:
-            self.engine._keyword_to_type = keyword
-            self.status_label.config(text=f"Trạng thái: Đang gõ từ khóa '{keyword}'...", fg=self.get_color("#b388ff"))
-            self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Delete' để dọn dẹp.", fg=self.get_color("#00bcd4")))
+        if self.engine.playwright is None:
+            return
+
+        # Tự động gửi lệnh mở tab mới và tìm kiếm luôn
+        self.engine._pending_action = "open_tab_and_search"
+        self.engine._keyword_to_type = keyword
+        self.status_label.config(text=f"Trạng thái: Tự động mở tab mới và tìm '{keyword}'...", fg=self.get_color("#b388ff"))
+        
+        self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Delete' để dọn dẹp.", fg=self.get_color("#00bcd4")))
 
     def show_credentials_dialog(self, event=None):
         if hasattr(self, 'cred_dialog') and self.cred_dialog.winfo_exists():
@@ -662,16 +669,10 @@ class AntiDetectGUI:
         self.btn_ip_that.config(state=tk.DISABLED)
         self.btn_proxy.config(state=tk.DISABLED)
         
-        preferred_tz = "Auto"
-            
-        preferred_platform = "Mobile"
+        preferred_platform = "Điện thoại (Ngẫu nhiên)"
         if hasattr(self, 'platform_var'):
-            p_val = self.platform_var.get()
-            if p_val == "Máy tính": preferred_platform = "Desktop"
-            elif p_val == "Ngẫu nhiên": preferred_platform = "Random"
-            
-        # Sinh 1 cấu hình duy nhất ngay lập tức
-        self.current_profile = self.engine.device_faker.generate_new_device(preferred_timezone=preferred_tz, platform_type=preferred_platform)
+            preferred_platform = self.platform_var.get()
+        self.current_profile = self.engine.device_faker.generate_new_device(preferred_timezone="Auto", platform_type=preferred_platform)
         
         self.btn_ip_that.config(state=tk.NORMAL)
         self.btn_proxy.config(state=tk.NORMAL)
