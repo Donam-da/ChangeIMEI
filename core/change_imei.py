@@ -48,14 +48,14 @@ class DeviceFaker:
             dsf = device["dsf"]
             ua = f"{device['ua_prefix']}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chrome_major}.0.0.0 Mobile Safari/537.36"
         elif platform_type == "Máy tính":
-            viewport = {"width": random.choice([1366, 1440, 1536, 1920]), "height": random.choice([720, 768, 800, 864])}
+            viewport = {"width": random.choice([1300, 1340, 1436, 1720]), "height": random.choice([720, 768, 800, 864])}
             is_mobile = False
             platform_str = "Máy tính (Real)"
             dsf = random.choice([1.0, 1.25])
             ua = None  # Để trống để Playwright tự dùng User-Agent chuẩn của Chrome thật trên máy (tránh mismatch TLS/UA gây dính Cloudflare)
         elif platform_type == "Mobile" or platform_type == "Điện thoại" or platform_type == "Điện thoại (Ngẫu nhiên)":
             # Cấu hình chuẩn của các dòng điện thoại di động thực tế (Tránh làm web bị thu nhỏ)
-            viewport = {"width": random.choice([360, 390, 412, 430]), "height": random.choice([740, 800, 844, 915])}
+            viewport = {"width": random.choice([450, 460, 470, 480, 490]), "height": random.choice([740, 800, 844, 915])}
             is_mobile = True
             platform_str = "Điện thoại (Emulated by Real Chrome)"
             dsf = random.choice([2.0, 2.5, 3.0])

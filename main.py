@@ -138,8 +138,18 @@ class AntiDetectGUI:
 
         self.btn_delete = tk.Button(btn_frame, text="🗑️ Delete",
                                     command=self.delete_session, bg="#b71c1c", fg="white", width=15,
-                                    state=tk.DISABLED, font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white", disabledforeground="#ffcdd2")
+                                    state=tk.NORMAL, font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#f44336", activeforeground="white", disabledforeground="#ffcdd2")
         self.btn_delete.grid(row=1, column=2, padx=2, pady=4)
+
+        self.btn_refresh = tk.Button(btn_frame, text="🔄 F5/Refresh", 
+                                        command=self.trigger_refresh, bg="#ffb74d", fg="black", width=15,
+                                        state=tk.DISABLED, **btn_style)
+        self.btn_refresh.grid(row=2, column=1, padx=2, pady=4)
+
+        self.btn_deep_clean = tk.Button(btn_frame, text="🧹 Deep Clean", 
+                                        command=self.trigger_deep_clean, bg="#880e4f", fg="white", width=15,
+                                        state=tk.NORMAL, font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#c2185b", activeforeground="white")
+        self.btn_deep_clean.grid(row=2, column=2, padx=2, pady=4)
 
         # --- BỘ LỌC CẤU HÌNH (KÍCH THƯỚC) ---
         filter_frame = tk.Frame(root, bg="#121212")
@@ -227,12 +237,12 @@ class AntiDetectGUI:
         self._is_wiping = False
         self.current_profile = None
         
-        # Vô hiệu hóa nút trong lúc chờ khởi tạo cấu hình ban đầu
-        self.btn_ip_that.config(state=tk.DISABLED)
-        self.btn_proxy.config(state=tk.DISABLED)
-        
-        # Mở hộp thoại tiến trình khởi tạo khi vừa mở Tool
-        self.root.after(300, self.show_initialization)
+        # Thiết lập trạng thái ban đầu
+        self.status_label.config(text="Trạng thái: Sẵn sàng tạo trình duyệt mới", fg=self.get_color("#a0a0a0"))
+        self.set_ui_for_browser_state(is_running=False)
+
+        # Lắng nghe sự kiện phím Space để Refresh trang
+        self.root.bind("<space>", self.handle_space_refresh)
 
         # Cập nhật cỡ chữ và giao diện theo scale hiện tại ngay khi phần mềm khởi động xong
         self.root.after(50, self.apply_scale)
@@ -429,21 +439,34 @@ class AntiDetectGUI:
     def refresh_keyword_list(self):
         for widget in self.kw_list_inner_frame.winfo_children():
             widget.destroy()
-            
+
         for idx, kw in enumerate(self.keywords):
             row = tk.Frame(self.kw_list_inner_frame, bg="#1e1e1e")
             row.pack(fill=tk.X, pady=1)
-            
+
             lbl = tk.Label(row, text=kw, font=("Arial", 8), bg="#1e1e1e", fg="#00e676", anchor="w", cursor="hand2")
+
+            delete_btn = tk.Label(row, text="🗑️", font=("Arial", 8), bg="#1e1e1e", fg="#ff5252", cursor="hand2")
+            delete_btn.pack(side=tk.RIGHT, padx=(0, 5))
+            delete_btn.bind("<Button-1>", lambda e, i=idx: self.delete_keyword_by_index(i))
+
             lbl.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-            lbl.bind("<Button-1>", lambda e, k=kw, i=idx: self.on_keyword_select(k, i))
-            row.bind("<Button-1>", lambda e, k=kw, i=idx: self.on_keyword_select(k, i))
+
+            # Bắt sự kiện click để chọn và kéo thả
+            lbl.bind("<ButtonPress-1>", lambda e, i=idx: self.on_drag_start(e, i))
+            lbl.bind("<B1-Motion>", self.on_drag_motion)
+            lbl.bind("<ButtonRelease-1>", self.on_drag_release)
             
-            btn_type = tk.Button(row, text="Nhập", font=("Arial", 7, "bold"), bg="#81c784", fg="black", relief=tk.FLAT, activebackground="#a5d6a7", command=lambda k=kw: self.trigger_type_keyword(k))
-            btn_type.pack(side=tk.RIGHT, padx=2)
-            
+            row.bind("<ButtonPress-1>", lambda e, i=idx: self.on_drag_start(e, i))
+            row.bind("<B1-Motion>", self.on_drag_motion)
+            row.bind("<ButtonRelease-1>", self.on_drag_release)
+
+            # Double-click (nháy đúp) để tự động mở tab mới và tìm kiếm
+            lbl.bind("<Double-1>", lambda e, k=kw: self.trigger_type_keyword(k))
+            row.bind("<Double-1>", lambda e, k=kw: self.trigger_type_keyword(k))
+
             # Kế thừa sự kiện cuộn chuột cho từng nút, nhãn trong danh sách (Tránh bị chặn khi trỏ trúng chữ)
-            for w in (row, lbl, btn_type):
+            for w in (row, lbl, delete_btn):
                 w.bind("<MouseWheel>", self._on_mousewheel)
                 w.bind("<Button-4>", self._on_mousewheel)
                 w.bind("<Button-5>", self._on_mousewheel)
@@ -452,7 +475,7 @@ class AntiDetectGUI:
             self._scale_widget_tree(self.kw_list_inner_frame, self.current_scale)
         if hasattr(self, 'apply_current_theme'):
             self.apply_current_theme(self.kw_list_inner_frame)
-            
+
     def add_keyword(self):
         kw = self.kw_entry.get().strip()
         if kw and kw != self.placeholder_text and kw not in self.keywords:
@@ -486,21 +509,120 @@ class AntiDetectGUI:
         self.root.focus()
         self.add_placeholder()
 
+    def delete_keyword_by_index(self, index_to_delete):
+        if index_to_delete >= len(self.keywords): return
+
+        current_selected_idx = getattr(self, 'selected_kw_idx', None)
+
+        del self.keywords[index_to_delete]
+
+        if current_selected_idx is not None:
+            if current_selected_idx == index_to_delete:
+                # The selected item was deleted, so clear the entry and selection
+                self.selected_kw_idx = None
+                self.kw_entry.delete(0, tk.END)
+                self.add_placeholder()
+            elif current_selected_idx > index_to_delete:
+                # An item before the selected one was deleted, so the index shifts down
+                self.selected_kw_idx -= 1
+
+        self.save_keywords()
+        self.refresh_keyword_list()
+
+        # Re-highlight the selected item if it still exists
+        if self.selected_kw_idx is not None and self.selected_kw_idx < len(self.keywords):
+            # This will re-apply highlight and text in entry
+            self.on_keyword_select(self.keywords[self.selected_kw_idx], self.selected_kw_idx)
+
     def on_keyword_select(self, kw, idx):
         self.selected_kw_idx = idx
         self.kw_entry.delete(0, tk.END)
         self.kw_entry.config(fg=self.get_color("#ffffff"))
         self.kw_entry.insert(0, kw)
+
+        for i, row_widget in enumerate(self.kw_list_inner_frame.winfo_children()):
+            bg_color = "#333333" if i == idx else "#1e1e1e"
+            row_widget.config(bg=bg_color)
+            for child in row_widget.winfo_children():
+                child.config(bg=bg_color)
+
+    def on_drag_start(self, event, index):
+        self._drag_start_y = event.y_root
+        self._drag_index = index
+        self._drag_threshold_met = False
         
-        for i, widget in enumerate(self.kw_list_inner_frame.winfo_children()):
-            lbl = widget.winfo_children()[0]
-            if i == idx:
-                widget.config(bg="#333333")
-                lbl.config(bg="#333333")
-            else:
-                widget.config(bg="#1e1e1e")
-                lbl.config(bg="#1e1e1e")
+        # Chọn từ khóa khi click
+        if index < len(self.keywords):
+            self.on_keyword_select(self.keywords[index], index)
+
+    def on_drag_motion(self, event):
+        if getattr(self, '_drag_index', None) is None:
+            return
+            
+        y_diff = event.y_root - self._drag_start_y
+        if abs(y_diff) > 5: # Ngưỡng kéo 5 pixel
+            self._drag_threshold_met = True
+            
+        if self._drag_threshold_met:
+            self.kw_canvas.config(cursor="fleur")
+            target_index = self._get_drag_target_index(event.y_root)
+            
+            # Đổi màu hiển thị nháp dòng mục tiêu
+            for i, child in enumerate(self.kw_list_inner_frame.winfo_children()):
+                if i == target_index and i != self._drag_index:
+                    bg_color = "#555555" # Màu xám sáng cho dòng sắp thả xuống
+                elif i == self._drag_index:
+                    bg_color = "#333333" # Dòng đang được kéo
+                else:
+                    bg_color = "#1e1e1e" # Màu mặc định
+                    
+                child.config(bg=bg_color)
+                for sub in child.winfo_children():
+                    sub.config(bg=bg_color)
+
+    def _get_drag_target_index(self, y_root):
+        children = self.kw_list_inner_frame.winfo_children()
+        if not children:
+            return 0
+            
+        for i, child in enumerate(children):
+            child_y = child.winfo_rooty()
+            child_h = child.winfo_height()
+            # Trả về index nếu chuột nằm ở nửa trên của dòng này
+            if y_root < child_y + child_h // 2:
+                return i
+        return len(children) - 1
+
+    def on_drag_release(self, event):
+        if getattr(self, '_drag_index', None) is None:
+            return
+            
+        self.kw_canvas.config(cursor="")
+        
+        if getattr(self, '_drag_threshold_met', False):
+            target_index = self._get_drag_target_index(event.y_root)
+            if target_index != self._drag_index:
+                # Đổi vị trí từ khóa
+                kw = self.keywords.pop(self._drag_index)
+                self.keywords.insert(target_index, kw)
+                self.save_keywords()
+                self.selected_kw_idx = target_index
                 
+                self._drag_index = None
+                self._drag_threshold_met = False
+                
+                self.refresh_keyword_list()
+                if self.selected_kw_idx is not None and self.selected_kw_idx < len(self.keywords):
+                    self.on_keyword_select(self.keywords[self.selected_kw_idx], self.selected_kw_idx)
+                return
+            else:
+                # Khôi phục màu hiển thị nếu người dùng kéo nhưng thả lại đúng vị trí cũ
+                if self.selected_kw_idx is not None and self.selected_kw_idx < len(self.keywords):
+                    self.on_keyword_select(self.keywords[self.selected_kw_idx], self.selected_kw_idx)
+        
+        self._drag_index = None
+        self._drag_threshold_met = False
+
     def trigger_type_keyword(self, keyword):
         if self.engine.playwright is None:
             return
@@ -662,28 +784,54 @@ class AntiDetectGUI:
             self.apply_current_theme(dialog)
             dialog.deiconify()
             return
-        self.show_initialization()
+        self.current_profile = None
+        self.status_label.config(text="Trạng thái: Sẵn sàng tạo trình duyệt mới", fg=self.get_color("#a0a0a0"))
 
-    def show_initialization(self):
-        """Khởi tạo một thiết bị giả lập hoàn toàn mới ngay lập tức."""
-        self.btn_ip_that.config(state=tk.DISABLED)
-        self.btn_proxy.config(state=tk.DISABLED)
-        
-        preferred_platform = "Điện thoại (Ngẫu nhiên)"
-        if hasattr(self, 'platform_var'):
-            preferred_platform = self.platform_var.get()
-        self.current_profile = self.engine.device_faker.generate_new_device(preferred_timezone="Auto", platform_type=preferred_platform)
-        
+    def reset_to_ready_state(self):
+        """Reset giao diện về trạng thái sẵn sàng tạo trình duyệt mới."""
         self.btn_ip_that.config(state=tk.NORMAL)
         self.btn_proxy.config(state=tk.NORMAL)
-        self.btn_delete.config(state=tk.DISABLED)
+        self.btn_delete.config(state=tk.NORMAL)
         self.btn_auto_task.config(state=tk.DISABLED)
         self.btn_auto_task_step.config(state=tk.DISABLED)
-        self.status_label.config(text="Trạng thái: Sẵn sàng (Thiết bị mới)", fg=self.get_color("#00e676"))
+        self.btn_refresh.config(state=tk.DISABLED)
+        self.btn_deep_clean.config(state=tk.NORMAL)
+        self.status_label.config(text="Trạng thái: Sẵn sàng tạo trình duyệt mới", fg=self.get_color("#a0a0a0"))
+        self.current_profile = None
         
         if getattr(self, 'auto_launch_hidden', False):
             self.auto_launch_hidden = False # Chỉ chạy tự động ở lần nạp cấu hình đầu tiên
             self.root.after(500, lambda: self.launch_ip_that(headless=True))
+            
+    def _wipe_all_residual_data(self):
+        """Hàm dùng chung để quét và xóa triệt để toàn bộ dữ liệu Profile ẩn danh"""
+        # 1. Xóa thư mục Profile đang dùng hiện tại (nếu có)
+        try:
+            current_path = getattr(self.engine, 'user_data_dir', None)
+            if current_path and os.path.exists(current_path) and ("Clean_Profile_" in current_path or "playwright_" in current_path or "pyright-" in current_path):
+                shutil.rmtree(current_path, ignore_errors=True)
+        except Exception: pass
+        
+        # 2. Xóa tất cả các thư mục Profile cũ còn sót lại trong thư mục gốc
+        try:
+            base_dir = self.engine.device_faker.base_dir
+            if os.path.exists(base_dir):
+                for item in os.listdir(base_dir):
+                    item_path = os.path.join(base_dir, item)
+                    if os.path.isdir(item_path) and "Clean_Profile_" in item:
+                        shutil.rmtree(item_path, ignore_errors=True)
+        except Exception: pass
+        
+        # 3. Dọn rác trong thư mục Temp của hệ điều hành (Chỉ xóa file do Tool tạo ra)
+        try:
+            temp_dir = tempfile.gettempdir()
+            if os.path.exists(temp_dir):
+                for item in os.listdir(temp_dir):
+                    if item.startswith("Clean_Profile_"):
+                        item_path = os.path.join(temp_dir, item)
+                        if os.path.isdir(item_path):
+                            shutil.rmtree(item_path, ignore_errors=True)
+        except Exception: pass
 
     def on_closing(self):
         """Xử lý sự kiện đóng cửa sổ chính của ứng dụng."""
@@ -725,22 +873,7 @@ class AntiDetectGUI:
                     self.root.after(200, final_wipe_and_exit) # Chờ engine tắt hẳn
                     return
                 
-                try:
-                    # Chỉ xóa thư mục tạm của đúng trình duyệt ở cửa sổ này dựa vào đường dẫn data
-                    current_path = getattr(self.engine, 'user_data_dir', None)
-                    if current_path and os.path.exists(current_path) and ("Clean_Profile_" in current_path or "playwright_" in current_path or "pyright-" in current_path):
-                        shutil.rmtree(current_path, ignore_errors=True)
-                except Exception: pass
-                
-                # Quét và xóa TẤT CẢ các thư mục Profile ẩn danh còn sót lại trên ổ cứng
-                try:
-                    base_dir = self.engine.device_faker.base_dir
-                    if os.path.exists(base_dir):
-                        for item in os.listdir(base_dir):
-                            item_path = os.path.join(base_dir, item)
-                            if os.path.isdir(item_path) and "Clean_Profile_" in item:
-                                shutil.rmtree(item_path, ignore_errors=True)
-                except Exception: pass
+                self._wipe_all_residual_data()
                 
                 self.root.destroy()
             final_wipe_and_exit()
@@ -779,11 +912,17 @@ class AntiDetectGUI:
             self.btn_auto_login.config(state=tk.NORMAL)
             self.btn_auto_task.config(state=tk.NORMAL)
             self.btn_auto_task_step.config(state=tk.NORMAL)
+            self.btn_refresh.config(state=tk.NORMAL)
+            self.btn_deep_clean.config(state=tk.DISABLED)
             self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Delete' để dọn dẹp.", fg=self.get_color("#00bcd4"))
         else:
+            self.btn_ip_that.config(state=tk.NORMAL)
+            self.btn_proxy.config(state=tk.NORMAL)
             self.btn_auto_login.config(state=tk.DISABLED)
             self.btn_auto_task.config(state=tk.DISABLED)
             self.btn_auto_task_step.config(state=tk.DISABLED)
+            self.btn_refresh.config(state=tk.DISABLED)
+            self.btn_deep_clean.config(state=tk.NORMAL)
 
     def trigger_auto_login(self):
         """Gửi lệnh điền tài khoản đến luồng duyệt web"""
@@ -813,11 +952,33 @@ class AntiDetectGUI:
             self.status_label.config(text="Trạng thái: Đang chạy tiến trình lấy mã upto step...", fg=self.get_color("#b388ff"))
             self.root.after(3000, lambda: self.status_label.config(text="Trạng thái: Đang theo dõi tiến trình lấy mã...", fg=self.get_color("#b388ff")))
 
+    def trigger_refresh(self):
+        """Gửi lệnh tải lại trang (F5) đến luồng duyệt web"""
+        if self.engine.playwright is not None:
+            self.engine._pending_action = "reload_page"
+            self.status_label.config(text="Trạng thái: Đang tải lại trang...", fg=self.get_color("#ffb74d"))
+            self.root.after(2000, lambda: self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Delete' để dọn dẹp.", fg=self.get_color("#00bcd4")))
+
+    def handle_space_refresh(self, event=None):
+        """Xử lý sự kiện nhấn phím Space để tải lại trang"""
+        # Bỏ qua nếu người dùng đang gõ văn bản trong ô tìm kiếm hoặc URL (Tránh bị dính phím Cách)
+        if event and event.widget.winfo_class() in ('Entry', 'Text', 'TCombobox'):
+            return
+            
+        self.trigger_refresh()
+
     def run_browser_thread(self, target_url, use_proxy, headless=False):
         """Chạy việc mở trình duyệt trong một thread riêng để không làm treo giao diện."""
         # Cập nhật giao diện ngay lập tức
         self.set_ui_for_browser_state(is_running=True)
         self.status_label.config(text="Trạng thái: Đang khởi chạy trình duyệt...", fg=self.get_color("#ffb74d"))
+        
+        # Chỉ tạo profile mới khi thực sự cần (khi bấm nút Mở trình duyệt)
+        if self.current_profile is None:
+            self.status_label.config(text="Trạng thái: Đang tạo profile trình duyệt...", fg=self.get_color("#ffb74d"))
+            preferred_platform = self.platform_var.get()
+            self.current_profile = self.engine.device_faker.generate_new_device(platform_type=preferred_platform)
+            self.status_label.config(text="Trạng thái: Đang khởi chạy trình duyệt...", fg=self.get_color("#ffb74d"))
         
         # Nạp sẵn tài khoản trước để sẵn sàng cho tự động đăng nhập
         creds = self.load_credentials()
@@ -851,7 +1012,7 @@ class AntiDetectGUI:
                 if hasattr(self, '_is_wiping') and not self._is_wiping:
                     self.btn_ip_that.config(state=tk.DISABLED)
                     self.btn_proxy.config(state=tk.DISABLED)
-                    self.btn_delete.config(state=tk.DISABLED)
+                    self.btn_delete.config(state=tk.NORMAL)
                     self.status_label.config(text="Trạng thái: Trình duyệt đã đóng. Đang tự động dọn dẹp...", fg=self.get_color("#ffb74d"))
                     self.delete_session()
             self.root.after(0, on_browser_thread_exit)
@@ -905,14 +1066,16 @@ class AntiDetectGUI:
         self.apply_current_theme(prog_win)
         prog_win.deiconify()
 
-        # Các thành phần dữ liệu trình duyệt bị xóa khỏi RAM
         items_to_wipe = [
-            "Đang đóng kết nối trình duyệt...", "Xóa thư mục: /Default/Cookies",
-            "Xóa tệp: /Default/Network Persistent State", "Xóa tệp: /Default/History",
-            "Xóa tệp: /Default/Login Data (Mật khẩu)", "Dọn dẹp thư mục: /Default/Web Data",
-            "Đang quét: /Default/Cache/Cache_Data/...", "Đang quét: /Default/GPUCache/...",
-            "Xóa dữ liệu: /Default/Local Storage/leveldb/...", "Xóa dữ liệu: /Default/Session Storage/...",
-            "Xóa dữ liệu: /Default/IndexedDB/...", "Tiêu hủy Service Worker Cache...", "Giải phóng toàn bộ RAM..."
+            "Đang đóng kết nối trình duyệt (nếu có)...",
+            "Xác định thư mục gốc 'ChangeIMEI_Real_Profiles'...",
+            "Bắt đầu quét và xóa các thư mục con...",
+            "Đang xóa Profile...",
+            "Đang xóa Profile...",
+            "Hoàn tất xóa thư mục...",
+            "Dọn dẹp các file rác còn sót lại...",
+            "Giải phóng bộ nhớ RAM...",
+            "Đã xóa sạch toàn bộ các Profile."
         ]
         total_items = len(items_to_wipe)
 
@@ -931,24 +1094,111 @@ class AntiDetectGUI:
                         self.root.after(200, wipe_browser_folder)
                         return
                     
-                    file_label.config(text="Đang dọn sạch các file rác trong thư mục Temp...")
-                    
-                    try:
-                        # Chỉ xóa thư mục tạm của đúng trình duyệt ở cửa sổ này dựa vào đường dẫn data
-                        current_path = getattr(self.engine, 'user_data_dir', None)
-                        if current_path and os.path.exists(current_path) and ("Clean_Profile_" in current_path or "playwright_" in current_path or "pyright-" in current_path):
-                            shutil.rmtree(current_path, ignore_errors=True)
-                    except Exception: pass
-                    
-                    def finish_wipe():
-                        self._is_wiping = False
-                        prog_win.destroy()
-                        self.show_initialization()
+                    def do_actual_wipe():
+                        file_label.config(text="Đang quét và xóa TOÀN BỘ các Profile đã tạo...")
                         
-                    self.root.after(800, finish_wipe)
+                        self._wipe_all_residual_data()
+                        
+                        def finish_wipe():
+                            self._is_wiping = False
+                            prog_win.destroy()
+                            self.reset_to_ready_state()
+                            
+                        self.root.after(300, finish_wipe)
+
+                    # Thêm một khoảng chờ ngắn để đảm bảo tiến trình trình duyệt đã được HĐH dọn dẹp hoàn toàn
+                    # và giải phóng khóa file trước khi xóa, giúp việc xóa profile triệt để hơn.
+                    self.root.after(500, do_actual_wipe)
                 wipe_browser_folder()
 
         update_progress(0)
+
+    def trigger_deep_clean(self):
+        confirm = messagebox.askyesno("Xác nhận Deep Clean", 
+                                      "CẢNH BÁO: Chức năng này sẽ quét TOÀN BỘ ổ đĩa C:\\ để tìm và xóa tận gốc mọi thư mục bắt đầu bằng 'Clean_Profile_'.\n\nQuá trình có thể mất từ vài phút đến chục phút. Bạn có chắc chắn muốn bắt đầu?", 
+                                      parent=self.root)
+        if confirm:
+            self.run_deep_clean_thread()
+
+    def run_deep_clean_thread(self):
+        prog_win = tk.Toplevel(self.root)
+        prog_win.title("Deep Clean đang chạy...")
+        
+        dialog_w = int(400 * self.current_scale)
+        dialog_h = int(180 * self.current_scale)
+        self.root.update_idletasks()
+        
+        main_x = self.root.winfo_rootx()
+        main_y = self.root.winfo_rooty()
+        main_w = self.root.winfo_width()
+        main_h = self.root.winfo_height()
+        pos_x = main_x + (main_w // 2) - (dialog_w // 2)
+        pos_y = main_y + (main_h // 2) - (dialog_h // 2)
+        
+        prog_win.geometry(f"{dialog_w}x{dialog_h}+{pos_x}+{pos_y}")
+        prog_win.configure(bg="#121212")
+        prog_win.transient(self.root)
+        prog_win.grab_set() 
+        prog_win.attributes("-topmost", True)
+        prog_win.protocol("WM_DELETE_WINDOW", lambda: None) # Ngăn người dùng tắt ngang làm lỗi tiến trình
+        
+        tk.Label(prog_win, text="Đang quét toàn bộ ổ C:\\ ...\nVui lòng kiên nhẫn chờ đợi (có thể mất vài phút).", font=("Arial", 9, "bold"), fg="#ffb74d", bg="#121212").pack(pady=10)
+        
+        status_label = tk.Label(prog_win, text="Đang chuẩn bị...", font=("Courier", 8), fg="#00e676", bg="#121212", wraplength=int(360*self.current_scale))
+        status_label.pack(pady=5)
+        
+        stats_label = tk.Label(prog_win, text="Đã xóa: 0 | Lỗi: 0", font=("Arial", 9), fg="#ffffff", bg="#121212")
+        stats_label.pack(pady=5)
+
+        self._scale_widget_tree(prog_win, self.current_scale)
+        self.apply_current_theme(prog_win)
+        
+        def worker():
+            target_prefix = "Clean_Profile_"
+            root_dir = "C:\\"
+            deleted_count = 0
+            error_count = 0
+            
+            last_update_time = time.time()
+            
+            for dirpath, dirnames, filenames in os.walk(root_dir):
+                current_time = time.time()
+                if current_time - last_update_time > 0.5:
+                    def update_scanning(path=dirpath):
+                        if prog_win.winfo_exists():
+                            display_path = path if len(path) <= 55 else "..." + path[-52:]
+                            status_label.config(text=f"Đang quét: {display_path}")
+                    self.root.after(0, update_scanning)
+                    last_update_time = current_time
+
+                for dirname in list(dirnames):
+                    if dirname.startswith(target_prefix):
+                        full_path = os.path.join(dirpath, dirname)
+                        try:
+                            shutil.rmtree(full_path, ignore_errors=True)
+                            if not os.path.exists(full_path):
+                                deleted_count += 1
+                            else:
+                                error_count += 1
+                        except Exception:
+                            error_count += 1
+                        
+                        def update_stats(path=full_path, d=deleted_count, e=error_count):
+                            if prog_win.winfo_exists():
+                                display_path = path if len(path) <= 55 else "..." + path[-52:]
+                                status_label.config(text=f"Phát hiện & xóa: {display_path}")
+                                stats_label.config(text=f"Đã xóa: {d} | Lỗi: {e}")
+                        self.root.after(0, update_stats)
+                        
+                        dirnames.remove(dirname)
+            
+            def finish(d=deleted_count, e=error_count):
+                if prog_win.winfo_exists():
+                    prog_win.destroy()
+                messagebox.showinfo("Deep Clean Hoàn Tất", f"Quá trình dọn dẹp sâu đã hoàn tất!\n\nSố thư mục đã xóa thành công: {d}\nSố thư mục bị lỗi (có thể do đang mở): {e}", parent=self.root)
+            self.root.after(0, finish)
+            
+        threading.Thread(target=worker, daemon=True).start()
 
 def main():
     # Bịt hoàn toàn cổng đầu ra, ngăn 100% log và lỗi in ra Terminal (Cửa sổ đen)

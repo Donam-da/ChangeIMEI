@@ -214,34 +214,117 @@ class BrowserEngine:
                     f"}}, {{ passive: false }});\n"
                 )
 
-                # --- ÉP MỞ LINK TRONG CÙNG TAB (ÁP DỤNG CHO MỌI TAB TRONG CONTEXT) ---
-                self.context.add_init_script("""
-                    // 1. Ghi đè window.open để mở đè lên tab hiện tại
-                    window.open = function(url) {
-                        window.location.href = url;
-                        return window;
-                    };
-                    
-                    // 2. Dùng MutationObserver để xóa target="_blank" NGAY LẬP TỨC khi thẻ <a> vừa được web sinh ra
-                    const observer = new MutationObserver((mutations) => {
-                        mutations.forEach((mutation) => {
-                            mutation.addedNodes.forEach((node) => {
-                                if (node.nodeType === 1) { // ELEMENT_NODE
-                                    if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
-                                        node.removeAttribute('target');
-                                    }
-                                    if (node.querySelectorAll) {
-                                        node.querySelectorAll('a[target="_blank"]').forEach(a => a.removeAttribute('target'));
-                                    }
-                                }
-                            });
-                        });
-                    });
+                # --- TẮT ÉP MỞ LINK TRONG CÙNG TAB ĐỂ TRÁNH GÂY ĐƠ/TREO TRANG ---
+                # Tính năng MutationObserver quét thẻ <a> liên tục gây quá tải CPU và treo/đơ trang web.
+                # self.context.add_init_script("""
+                #     // 1. Ghi đè window.open để mở đè lên tab hiện tại
+                #     window.open = function(url) {
+                #         window.location.href = url;
+                #         return window;
+                #     };
+                #     
+                #     // 2. Dùng MutationObserver để xóa target="_blank" NGAY LẬP TỨC khi thẻ <a> vừa được web sinh ra
+                #     const observer = new MutationObserver((mutations) => {
+                #         mutations.forEach((mutation) => {
+                #             mutation.addedNodes.forEach((node) => {
+                #                 if (node.nodeType === 1) { // ELEMENT_NODE
+                #                     if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
+                #                         node.removeAttribute('target');
+                #                     }
+                #                     if (node.querySelectorAll) {
+                #                         node.querySelectorAll('a[target="_blank"]').forEach(a => a.removeAttribute('target'));
+                #                     }
+                #                 }
+                #             });
+                #         });
+                #     });
+                #
+                #     document.addEventListener('DOMContentLoaded', () => {
+                #         document.querySelectorAll('a[target="_blank"]').forEach(a => a.removeAttribute('target'));
+                #         observer.observe(document, { childList: true, subtree: true });
+                #     });
+                # """)
 
-                    document.addEventListener('DOMContentLoaded', () => {
-                        document.querySelectorAll('a[target="_blank"]').forEach(a => a.removeAttribute('target'));
-                        observer.observe(document, { childList: true, subtree: true });
-                    });
+                # --- THÊM THANH CUỘN NHANH 5PX BÊN PHẢI MÀN HÌNH ---
+                self.context.add_init_script("""
+                    (() => {
+                        if (window.self !== window.top || window.location.protocol === 'about:') {
+                            return;
+                        }
+
+                        const track = document.createElement('div');
+                        const thumb = document.createElement('div');
+
+                        Object.assign(track.style, {
+                            position: 'fixed', top: '0', right: '0', bottom: '0',
+                            width: '25px', backgroundColor: 'rgba(50, 50, 50, 0.3)',
+                            zIndex: '2147483647', userSelect: 'none', transition: 'background-color 0.2s'
+                        });
+
+                        Object.assign(thumb.style, {
+                            position: 'absolute', width: '100%',
+                            backgroundColor: 'rgba(0, 188, 212, 0.8)',
+                            borderRadius: '3px', cursor: 'grab', userSelect: 'none'
+                        });
+
+                        track.appendChild(thumb);
+
+                        const updateThumb = () => {
+                            try {
+                                const { scrollHeight, clientHeight, scrollTop } = document.documentElement;
+                                if (scrollHeight <= clientHeight) {
+                                    track.style.display = 'none';
+                                    return;
+                                }
+                                track.style.display = 'block';
+                                const thumbHeight = (clientHeight / scrollHeight) * clientHeight;
+                                const thumbTop = (scrollTop / scrollHeight) * clientHeight;
+                                thumb.style.height = `${Math.max(thumbHeight, 20)}px`;
+                                thumb.style.top = `${thumbTop}px`;
+                            } catch (e) {}
+                        };
+
+                        let isDragging = false, startY, startScrollTop;
+
+                        thumb.addEventListener('mousedown', e => {
+                            e.preventDefault(); e.stopPropagation();
+                            isDragging = true;
+                            startY = e.clientY;
+                            startScrollTop = document.documentElement.scrollTop;
+                            track.style.backgroundColor = 'rgba(50, 50, 50, 0.6)';
+                            thumb.style.cursor = 'grabbing';
+                        });
+
+                        document.addEventListener('mousemove', e => {
+                            if (!isDragging) return;
+                            e.preventDefault();
+                            const deltaY = e.clientY - startY;
+                            const { scrollHeight, clientHeight } = document.documentElement;
+                            window.scrollTo(0, startScrollTop + deltaY * (scrollHeight / clientHeight));
+                        });
+
+                        document.addEventListener('mouseup', e => {
+                            if (isDragging) {
+                                e.preventDefault();
+                                isDragging = false;
+                                track.style.backgroundColor = 'rgba(50, 50, 50, 0.3)';
+                                thumb.style.cursor = 'grab';
+                            }
+                        });
+
+                        const init = () => {
+                            if (!document.body) { setTimeout(init, 50); return; }
+                            document.body.appendChild(track);
+                            const observer = new ResizeObserver(updateThumb);
+                            observer.observe(document.documentElement);
+                            window.addEventListener('scroll', updateThumb, { passive: true });
+                            window.addEventListener('resize', updateThumb, { passive: true });
+                            updateThumb();
+                        };
+
+                        if (document.readyState === 'complete' || document.readyState === 'interactive') init();
+                        else document.addEventListener('DOMContentLoaded', init, { once: true });
+                    })();
                 """)
 
                 def on_page_load(p):
@@ -481,6 +564,11 @@ class BrowserEngine:
                                             target_page.bring_to_front()
                                         except Exception: pass
                                         
+                                        print("[*] Đang tải lại trang (F5) để đảm bảo mọi thành phần (captcha) được nạp...")
+                                        target_page.reload(wait_until="domcontentloaded", timeout=15000)
+                                        self.auto_action_count += 1
+                                        target_page.wait_for_timeout(1000) # Chờ 1 giây sau khi F5
+                                        
                                         print(f"[*] Đang thực thi lệnh tự động điền tài khoản...")
                                         
                                         login_data = {
@@ -544,25 +632,37 @@ class BrowserEngine:
                                         print("[*] Đang tự động tìm và nhấn nút Đăng nhập...")
                                         try:
                                             btn_selectors = "button[type='submit'], button:has-text('Đăng nhập'), button:has-text('Đăng Nhập'), button:has-text('Login'), input[type='submit']"
-                                            target_page.click(btn_selectors, timeout=4000)
-                                            self.auto_action_count += 1
-                                            print("[*] Đã nhấn nút Đăng nhập. Đang kiểm tra kết quả (chờ tối đa 3s)...")
                                             
-                                            try:
-                                                # Đợi 3s xem URL có thoát khỏi trang login (để vào home) hay không
-                                                target_page.wait_for_function("window.location.href.indexOf('login') === -1", timeout=3000)
-                                                print("[*] Đăng nhập thành công, đã vào trang Home!")
-                                                self.login_retry_count = 0  # Reset bộ đếm thử lại nếu thành công
+                                            login_success = False
+                                            for click_attempt in range(1, 3):
+                                                print(f"[*] Đang nhấn nút Đăng nhập (Lần {click_attempt}/2)...")
+                                                target_page.click(btn_selectors, timeout=4000)
+                                                self.auto_action_count += 1
+                                                print("[*] Đã nhấn. Đang kiểm tra kết quả (chờ tối đa 3s)...")
+                                                
+                                                try:
+                                                    # Đợi 3s xem URL có thoát khỏi trang login (để vào home) hay không
+                                                    target_page.wait_for_function("window.location.href.indexOf('login') === -1", timeout=3000)
+                                                    print("[*] Đăng nhập thành công, đã vào trang Home!")
+                                                    login_success = True
+                                                    break
+                                                except Exception:
+                                                    if click_attempt < 2:
+                                                        print("[-] Vẫn ở trang đăng nhập. Thử nhấn lại lần 2...")
+                                                        target_page.wait_for_timeout(1000)
+                                            
+                                            if login_success:
+                                                self.login_retry_count = 0
                                                 self._pending_action = "wait_and_go_tasks"
-                                            except Exception:
-                                                print("[-] Sau 3s vẫn chưa vào được trang Home.")
+                                            else:
+                                                print("[-] Sau 2 lần nhấn vẫn chưa vào được trang Home.")
                                                 self.login_retry_count = getattr(self, 'login_retry_count', 0) + 1
                                                 if self.login_retry_count <= 3:
-                                                    print(f"[*] Đang tải lại trang (F5) và thử đăng nhập lại (Lần {self.login_retry_count})...")
+                                                    print(f"[*] Đang tải lại trang (F5) và thử điền lại từ đầu (Lần {self.login_retry_count})...")
                                                     target_page.reload(wait_until="domcontentloaded", timeout=15000)
                                                     self._pending_action = "fill_login"
                                                 else:
-                                                    print("[!] Đã thử tự động đăng nhập lại 3 lần nhưng vẫn thất bại. Có thể do sai mật khẩu hoặc Captcha. Dừng tự động.")
+                                                    print("[!] Đã thử F5 đăng nhập lại 3 lần nhưng vẫn thất bại. Có thể do sai mật khẩu hoặc Captcha. Dừng tự động.")
                                                     self.login_retry_count = 0
                                         except Exception:
                                             print("[!] Không tìm thấy nút Đăng nhập tự động. Vui lòng nhấn bằng tay.")
@@ -813,6 +913,17 @@ class BrowserEngine:
                                 except Exception as ex:
                                     print(f"[!] Lỗi trong quá trình tự động lấy mã: {ex}")
 
+                            elif getattr(self, '_pending_action', None) == "reload_page":
+                                self._pending_action = None
+                                try:
+                                    active_page = self.context.pages[-1]
+                                    print("[*] Đang tải lại trang (F5) theo yêu cầu...")
+                                    # Dùng JavaScript reload để không chặn luồng chờ mạng, giúp thao tác mượt mà không chập chờn
+                                    active_page.evaluate("window.location.reload(true)")
+                                    self.auto_action_count += 1
+                                except Exception as ex:
+                                    print(f"[!] Lỗi khi tải lại trang: {ex}")
+
                             elif getattr(self, '_pending_action', None) == "open_tab_and_search":
                                 self._pending_action = None
                                 keyword = getattr(self, '_keyword_to_type', None)
@@ -885,7 +996,6 @@ class BrowserEngine:
             # Khối này đảm bảo trạng thái được reset ngay cả khi có lỗi
             self.context = None
             self.playwright = None
-            self.user_data_dir = ""
             print("[*] Session đã được dọn dẹp hoàn toàn.")
 
     def close_and_cleanup(self):
