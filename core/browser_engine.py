@@ -37,6 +37,7 @@ class BrowserEngine:
         self.login_phone = ""
         self.login_password = ""
         self.user_data_dir = ""
+        self.optimize_performance = False
 
     def _load_proxies(self):
         """Đọc danh sách proxy từ file txt"""
@@ -125,6 +126,19 @@ class BrowserEngine:
                 self.playwright = p
                 device_profile['executable_path'] = "Google Chrome Thật (Real Browser)"
                 print("[*] Đang khởi chạy Google Chrome thật với Hồ sơ Sạch...")
+
+                base_args = [
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-infobars",
+                    "--disable-features=IsolateOrigins,site-per-process",
+                    f"--window-size={v_width},{v_height}"
+                ]
+                
+                if self.optimize_performance:
+                    base_args.extend([
+                        "--disk-cache-size=1",
+                        "--media-cache-size=1"
+                    ])
                 
                 try:
                     self.context = p.chromium.launch_persistent_context(
@@ -132,12 +146,7 @@ class BrowserEngine:
                         channel="chrome",
                         headless=headless,
                         ignore_default_args=["--enable-automation"],
-                        args=[
-                            "--disable-blink-features=AutomationControlled",
-                            "--disable-infobars",
-                            "--disable-features=IsolateOrigins,site-per-process",
-                            f"--window-size={v_width},{v_height}"
-                        ],
+                        args=base_args,
                         **( {'user_agent': device_profile["user_agent"]} if device_profile.get("user_agent") else {} ),
                         viewport=device_profile["viewport"],
                         is_mobile=device_profile["is_mobile"],
@@ -152,12 +161,7 @@ class BrowserEngine:
                         user_data_dir=self.user_data_dir,
                         headless=headless,
                         ignore_default_args=["--enable-automation"],
-                        args=[
-                            "--disable-blink-features=AutomationControlled",
-                            "--disable-infobars",
-                            "--disable-features=IsolateOrigins,site-per-process",
-                            f"--window-size={v_width},{v_height}"
-                        ],
+                        args=base_args,
                         **( {'user_agent': device_profile["user_agent"]} if device_profile.get("user_agent") else {} ),
                         viewport=device_profile["viewport"],
                         is_mobile=device_profile["is_mobile"],
@@ -455,9 +459,21 @@ class BrowserEngine:
                 on_launch_callback(device_profile)
 
                 try:
+                    last_cache_clear_time = time.time()
                     # Giữ tiến trình chạy cho đến khi tất cả các tab bị đóng hoặc trình duyệt tắt
                     while self.context and self.context.pages and not self._should_close:
                         try:
+                            if self.optimize_performance and (time.time() - last_cache_clear_time > 60):
+                                last_cache_clear_time = time.time()
+                                try:
+                                    active_p = self.context.pages[-1]
+                                    client = self.context.new_cdp_session(active_p)
+                                    client.send("Network.clearBrowserCache")
+                                    client.detach()
+                                    print("[*] [Giảm Lag] Đã tự động dọn dẹp Cache trình duyệt để làm mượt chương trình...")
+                                except Exception:
+                                    pass
+
                             # --- TỰ ĐỘNG DIỆT CLOUDFLARE TURNSTILE TRONG LÚC RẢNH RỖI ---
                             try:
                                 active_p = self.context.pages[-1]
@@ -936,27 +952,49 @@ class BrowserEngine:
                                 try:
                                     print(f"\n[*] Đang thực thi lệnh mở tab mới và tìm kiếm '{keyword}'...")
                                     # 1. Mở tab mới
+                                    print("[*] Đang mô phỏng thao tác di chuột click dấu '+' mở tab mới...")
+                                    try:
+                                        active_p = self.context.pages[-1]
+                                        active_p.mouse.move(random.randint(100, 300), 5, steps=random.randint(5, 10))
+                                        active_p.wait_for_timeout(random.randint(200, 400))
+                                    except Exception: pass
+                                    
                                     new_page = self.context.new_page()
                                     new_page.bring_to_front()
                                     self.auto_action_count += 1
                                     print("[*] Đã mở tab mới.")
+                                    new_page.wait_for_timeout(random.randint(300, 700))
                             
                                     # 2. Đi đến google.com
-                                    print("[*] Đang truy cập Google...")
+                                    print("[*] Đang mô phỏng gõ 'google.com' lên thanh địa chỉ URL...")
+                                    typing_delay = len("google.com") * random.randint(80, 150)
+                                    new_page.wait_for_timeout(typing_delay)
+                                    
                                     new_page.goto("https://www.google.com/", wait_until="domcontentloaded", timeout=60000)
                                     new_page.wait_for_load_state("domcontentloaded")
                                     self.auto_action_count += 1
+                                    new_page.wait_for_timeout(random.randint(500, 1000))
                             
                                     # 3. Chờ ô tìm kiếm và điền từ khóa
                                     search_selector = "textarea[name='q'], input[name='q']"
                                     new_page.wait_for_selector(search_selector, state="visible", timeout=15000)
+                                    
+                                    print("[*] Đang rê chuột xuống ô tìm kiếm...")
+                                    try:
+                                        box = new_page.locator(search_selector).first.bounding_box()
+                                        if box:
+                                            target_x = box["x"] + random.uniform(box["width"] * 0.2, box["width"] * 0.8)
+                                            target_y = box["y"] + random.uniform(box["height"] * 0.2, box["height"] * 0.8)
+                                            new_page.mouse.move(target_x, target_y, steps=random.randint(5, 10))
+                                            new_page.wait_for_timeout(random.randint(200, 500))
+                                    except Exception: pass
                                     
                                     new_page.click(search_selector)
                                     self.auto_action_count += 1
                                     new_page.wait_for_timeout(random.randint(165, 500))
                                     
                                     print(f"[*] Đang gõ từ khóa: {keyword}")
-                                    new_page.type(search_selector, keyword, delay=random.randint(12, 32))
+                                    new_page.type(search_selector, keyword, delay=random.randint(30, 80))
                                     self.auto_action_count += len(keyword)
                                     
                                     new_page.wait_for_timeout(random.randint(265, 500))

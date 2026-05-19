@@ -74,6 +74,7 @@ class AntiDetectGUI:
         # -------------------------------------------------------
 
         self.engine = BrowserEngine()
+        self.is_optimized = False
         
         self.credentials_file = os.path.join(os.path.dirname(__file__), 'data', 'credentials.json')
         self.keywords_file = os.path.join(os.path.dirname(__file__), 'data', 'keywords.json')
@@ -145,6 +146,11 @@ class AntiDetectGUI:
                                         command=self.trigger_refresh, bg="#ffb74d", fg="black", width=15,
                                         state=tk.DISABLED, **btn_style)
         self.btn_refresh.grid(row=2, column=1, padx=2, pady=4)
+
+        self.btn_optimize = tk.Button(btn_frame, text="⚡ Giảm Lag", 
+                                        command=self.toggle_optimize, bg="#673ab7", fg="white", width=15,
+                                        state=tk.NORMAL, font=("Arial", 8, "bold"), relief=tk.FLAT, activebackground="#9575cd", activeforeground="white")
+        self.btn_optimize.grid(row=2, column=0, padx=2, pady=4)
 
         self.btn_deep_clean = tk.Button(btn_frame, text="🧹 Deep Clean", 
                                         command=self.trigger_deep_clean, bg="#880e4f", fg="white", width=15,
@@ -546,6 +552,18 @@ class AntiDetectGUI:
             for child in row_widget.winfo_children():
                 child.config(bg=bg_color)
 
+    def toggle_optimize(self):
+        """Bật/tắt chế độ tối ưu hóa giảm lag (CPU/RAM)"""
+        self.is_optimized = not getattr(self, 'is_optimized', False)
+        if self.is_optimized:
+            self.btn_optimize.config(bg="#00e676", fg="black", text="⚡ Đã Giảm Lag")
+            self.engine.optimize_performance = True
+            messagebox.showinfo("Tối ưu", "Đã BẬT chế độ giảm lag.\n\nTrình duyệt sẽ được cấu hình giới hạn dung lượng lưu trữ và tự động dọn dẹp bộ nhớ đệm (Cache) mỗi 60 giây để hoạt động mượt mà hơn, mà không bị tắt hình ảnh hay quảng cáo.", parent=self.root)
+        else:
+            self.btn_optimize.config(bg="#673ab7", fg="white", text="⚡ Giảm Lag")
+            self.engine.optimize_performance = False
+            messagebox.showinfo("Tối ưu", "Đã TẮT chế độ giảm lag.\n\nTrình duyệt sẽ lưu bộ nhớ đệm đầy đủ bình thường.", parent=self.root)
+
     def on_drag_start(self, event, index):
         self._drag_start_y = event.y_root
         self._drag_index = index
@@ -796,6 +814,7 @@ class AntiDetectGUI:
         self.btn_auto_task_step.config(state=tk.DISABLED)
         self.btn_refresh.config(state=tk.DISABLED)
         self.btn_deep_clean.config(state=tk.NORMAL)
+        self.btn_optimize.config(state=tk.NORMAL)
         self.status_label.config(text="Trạng thái: Sẵn sàng tạo trình duyệt mới", fg=self.get_color("#a0a0a0"))
         self.current_profile = None
         
@@ -914,6 +933,7 @@ class AntiDetectGUI:
             self.btn_auto_task_step.config(state=tk.NORMAL)
             self.btn_refresh.config(state=tk.NORMAL)
             self.btn_deep_clean.config(state=tk.DISABLED)
+            self.btn_optimize.config(state=tk.DISABLED)
             self.status_label.config(text="Trạng thái: Trình duyệt đang chạy. Đóng trình duyệt và bấm 'Delete' để dọn dẹp.", fg=self.get_color("#00bcd4"))
         else:
             self.btn_ip_that.config(state=tk.NORMAL)
@@ -923,6 +943,7 @@ class AntiDetectGUI:
             self.btn_auto_task_step.config(state=tk.DISABLED)
             self.btn_refresh.config(state=tk.DISABLED)
             self.btn_deep_clean.config(state=tk.NORMAL)
+            self.btn_optimize.config(state=tk.NORMAL)
 
     def trigger_auto_login(self):
         """Gửi lệnh điền tài khoản đến luồng duyệt web"""
@@ -1140,7 +1161,6 @@ class AntiDetectGUI:
         prog_win.transient(self.root)
         prog_win.grab_set() 
         prog_win.attributes("-topmost", True)
-        prog_win.protocol("WM_DELETE_WINDOW", lambda: None) # Ngăn người dùng tắt ngang làm lỗi tiến trình
         
         tk.Label(prog_win, text="Đang quét toàn bộ ổ C:\\ ...\nVui lòng kiên nhẫn chờ đợi (có thể mất vài phút).", font=("Arial", 9, "bold"), fg="#ffb74d", bg="#121212").pack(pady=10)
         
@@ -1149,6 +1169,16 @@ class AntiDetectGUI:
         
         stats_label = tk.Label(prog_win, text="Đã xóa: 0 | Lỗi: 0", font=("Arial", 9), fg="#ffffff", bg="#121212")
         stats_label.pack(pady=5)
+
+        stop_flag = [False]
+
+        def on_close_deep_clean():
+            stop_flag[0] = True
+            if prog_win.winfo_exists():
+                status_label.config(text="Đang dừng quá trình quét...", fg="#ff5252")
+                # Vô hiệu hóa nút X sau khi bấm 1 lần để tránh lỗi click nhiều lần
+                prog_win.protocol("WM_DELETE_WINDOW", lambda: None)
+        prog_win.protocol("WM_DELETE_WINDOW", on_close_deep_clean)
 
         self._scale_widget_tree(prog_win, self.current_scale)
         self.apply_current_theme(prog_win)
@@ -1162,6 +1192,8 @@ class AntiDetectGUI:
             last_update_time = time.time()
             
             for dirpath, dirnames, filenames in os.walk(root_dir):
+                if stop_flag[0]:
+                    break
                 current_time = time.time()
                 if current_time - last_update_time > 0.5:
                     def update_scanning(path=dirpath):
@@ -1172,6 +1204,8 @@ class AntiDetectGUI:
                     last_update_time = current_time
 
                 for dirname in list(dirnames):
+                    if stop_flag[0]:
+                        break
                     if dirname.startswith(target_prefix):
                         full_path = os.path.join(dirpath, dirname)
                         try:
@@ -1192,10 +1226,13 @@ class AntiDetectGUI:
                         
                         dirnames.remove(dirname)
             
-            def finish(d=deleted_count, e=error_count):
+            def finish(d=deleted_count, e=error_count, stopped=stop_flag[0]):
                 if prog_win.winfo_exists():
                     prog_win.destroy()
-                messagebox.showinfo("Deep Clean Hoàn Tất", f"Quá trình dọn dẹp sâu đã hoàn tất!\n\nSố thư mục đã xóa thành công: {d}\nSố thư mục bị lỗi (có thể do đang mở): {e}", parent=self.root)
+                if stopped:
+                    messagebox.showinfo("Deep Clean Đã Dừng", f"Quá trình dọn dẹp đã bị người dùng dừng lại giữa chừng.\n\nSố thư mục đã xóa: {d}\nSố thư mục bị lỗi: {e}", parent=self.root)
+                else:
+                    messagebox.showinfo("Deep Clean Hoàn Tất", f"Quá trình dọn dẹp sâu đã hoàn tất!\n\nSố thư mục đã xóa thành công: {d}\nSố thư mục bị lỗi (có thể do đang mở): {e}", parent=self.root)
             self.root.after(0, finish)
             
         threading.Thread(target=worker, daemon=True).start()
